@@ -119,6 +119,22 @@ func (f *HTMLFormatter) generateHTML(result *DuplicateResult) string {
             font-weight: bold;
             color: #007acc;
         }
+        .duplicate-group.collapsed .file-list {
+            display: none;
+        }
+        .group-header::before {
+            content: '▼';
+            margin-right: 8px;
+            transition: transform 0.2s;
+        }
+        .duplicate-group.collapsed .group-header::before {
+            transform: rotate(-90deg);
+        }
+        .group-hash:hover {
+            background-color: #e9ecef;
+            border-radius: 3px;
+            padding: 2px 4px;
+        }
     </style>
 </head>
 <body>
@@ -173,6 +189,78 @@ func (f *HTMLFormatter) generateHTML(result *DuplicateResult) string {
 	}
 
 	sb.WriteString(`
+    <script>
+        (function() {
+            // Feature detection for clipboard API
+            var supportsClipboard = navigator && navigator.clipboard && navigator.clipboard.writeText;
+
+            // Fallback for older browsers
+            function fallbackCopyText(text) {
+                var textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                } catch (err) {
+                    console.warn('Fallback copy failed');
+                }
+                document.body.removeChild(textArea);
+            }
+
+            // Copy hash functionality
+            function copyHash(event) {
+                var hash = event.target.getAttribute('data-full-hash');
+                var original = event.target.textContent;
+                if (supportsClipboard) {
+                    navigator.clipboard.writeText(hash).then(function() {
+                        event.target.textContent = 'Copied!';
+                        setTimeout(function() {
+                            event.target.textContent = original;
+                        }, 1000);
+                    });
+                } else {
+                    fallbackCopyText(hash);
+                    event.target.textContent = 'Copied!';
+                    setTimeout(function() {
+                        event.target.textContent = original;
+                    }, 1000);
+                }
+            }
+
+            // Collapsible groups functionality
+            function toggleGroup(event) {
+                // Only toggle if clicking on header, not on hash
+                if (event.target.classList.contains('group-hash')) return;
+
+                var group = event.currentTarget.closest('.duplicate-group');
+                var fileList = group.querySelector('.file-list');
+                var isCollapsed = fileList.style.display === 'none';
+
+                fileList.style.display = isCollapsed ? 'block' : 'none';
+                group.classList.toggle('collapsed', !isCollapsed);
+            }
+
+            // Initialize when DOM is ready
+            document.addEventListener('DOMContentLoaded', function() {
+                // Add click handlers for hashes
+                var hashes = document.querySelectorAll('.group-hash');
+                for (var i = 0; i < hashes.length; i++) {
+                    hashes[i].addEventListener('click', copyHash);
+                    hashes[i].style.cursor = 'pointer';
+                    hashes[i].title = 'Click to copy hash';
+                }
+
+                // Add click handlers for group headers
+                var headers = document.querySelectorAll('.group-header');
+                for (var i = 0; i < headers.length; i++) {
+                    headers[i].addEventListener('click', toggleGroup);
+                    headers[i].style.cursor = 'pointer';
+                }
+            });
+        })();
+    </script>
 </body>
 </html>`)
 
@@ -201,10 +289,10 @@ func (f *HTMLFormatter) generateGroupHTML(group DuplicateGroup, _ int) string {
 	sb.WriteString(fmt.Sprintf(`
         <div class="duplicate-group">
             <div class="group-header">
-                <span class="group-hash">%s</span>
+                <span class="group-hash" data-full-hash="%s">%s</span>
                 <span class="group-size">(%s)</span>
             </div>
-            <ul class="file-list">`, html.EscapeString(hashDisplay), html.EscapeString(sizeStr)))
+            <ul class="file-list">`, html.EscapeString(group.Hash), html.EscapeString(hashDisplay), html.EscapeString(sizeStr)))
 
 	for j, file := range files {
 		badgeClass := "duplicate"
