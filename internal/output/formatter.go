@@ -4,17 +4,34 @@ import (
 	"io"
 )
 
+// Flag represents a command-line flag with name and value
+type Flag struct {
+	Name  string `json:"name" xml:"name"`
+	Value string `json:"value" xml:",chardata"`
+}
+
+// Metadata contains information about the tool execution
+type Metadata struct {
+	ToolName    string `json:"toolName" xml:"toolName"`
+	SubCommand  string `json:"subCommand" xml:"subCommand"`
+	Flags       []Flag `json:"flags" xml:"flags>flag"`
+	Version     string `json:"version" xml:"version"`
+	GeneratedAt string `json:"generatedAt" xml:"generatedAt"`
+}
+
 // DuplicateGroup represents a group of duplicate files with the same hash
 type DuplicateGroup struct {
-	Hash  string   `json:"hash" xml:"hash"`
-	Size  int64    `json:"size" xml:"size"`
-	Files []string `json:"files" xml:"files"`
+	Hash     string   `json:"hash" xml:"hash"`
+	HashType string   `json:"hashType" xml:"hashType"`
+	Size     int64    `json:"size" xml:"size"`
+	Files    []string `json:"files" xml:"files"`
 }
 
 // DuplicateResult represents the complete result of a duplicate file search
 type DuplicateResult struct {
-	Groups []DuplicateGroup `json:"groups" xml:"groups"`
-	Found  bool             `json:"found" xml:"found"`
+	Metadata *Metadata        `json:"metadata" xml:"metadata"`
+	Groups   []DuplicateGroup `json:"groups" xml:"groups"`
+	Found    bool             `json:"found" xml:"found"`
 }
 
 // OutputFormatter defines the interface for different output formats

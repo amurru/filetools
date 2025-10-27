@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"amurru/filetools/internal/output"
 	"github.com/spf13/cobra"
@@ -142,9 +143,10 @@ func runDupfind(cmd *cobra.Command, args []string) {
 			}
 
 			group := output.DuplicateGroup{
-				Hash:  hash,
-				Size:  size,
-				Files: files,
+				Hash:     hash,
+				HashType: hashAlgorithm,
+				Size:     size,
+				Files:    files,
 			}
 
 			result.Groups = append(result.Groups, group)
@@ -162,6 +164,28 @@ func runDupfind(cmd *cobra.Command, args []string) {
 	// Get output format and create formatter
 	format := getOutputFormat(cmd)
 	formatter := output.NewFormatter(format)
+
+	// Create metadata
+	flags := []output.Flag{
+		{Name: "hash", Value: hashAlgorithm},
+		{Name: "output", Value: string(format)},
+	}
+
+	// Add file flag if specified
+	if outputFile != "" {
+		flags = append(flags, output.Flag{Name: "file", Value: outputFile})
+	}
+
+	metadata := &output.Metadata{
+		ToolName:    "filetools",
+		SubCommand:  "dupfind",
+		Flags:       flags,
+		Version:     version,
+		GeneratedAt: time.Now().Format(time.RFC3339),
+	}
+
+	// Set metadata in result
+	result.Metadata = metadata
 
 	// Output the results
 	if err := formatter.FormatDuplicates(result, writer); err != nil {
