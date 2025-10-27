@@ -58,6 +58,15 @@ func (f *TextFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writ
 		fmt.Fprintln(writer)
 	}
 
+	// Output exclusions if any
+	if len(result.Exclusions) > 0 {
+		fmt.Fprintln(writer, "Excluded files and directories:")
+		for _, exclusion := range result.Exclusions {
+			fmt.Fprintf(writer, "- %s (%s)\n", exclusion.Path, exclusion.Reason)
+		}
+		fmt.Fprintln(writer)
+	}
+
 	return nil
 }
 
@@ -117,6 +126,14 @@ func (f *TextFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) e
 			}
 			fmt.Fprintf(writer, "%-50s %-8d %-12s %.2f%%\n",
 				path, dir.FileCount, formatSize(dir.TotalSize), dir.Percentage)
+		}
+	}
+
+	// Output exclusions if any
+	if len(result.Exclusions) > 0 {
+		fmt.Fprintln(writer, "\nExcluded files and directories:")
+		for _, exclusion := range result.Exclusions {
+			fmt.Fprintf(writer, "- %s (%s)\n", exclusion.Path, exclusion.Reason)
 		}
 	}
 

@@ -135,6 +135,36 @@ func (f *HTMLFormatter) generateHTML(result *DuplicateResult) string {
             border-radius: 3px;
             padding: 2px 4px;
         }
+        .exclusions-section {
+            margin-top: 40px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        .exclusions-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .exclusions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .exclusions-table th,
+        .exclusions-table td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .exclusions-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .exclusions-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .exclusions-table tr:hover {
+            background-color: #e9ecef;
+        }
     </style>
 </head>
 <body>
@@ -164,6 +194,34 @@ func (f *HTMLFormatter) generateHTML(result *DuplicateResult) string {
 		for i, group := range result.Groups {
 			sb.WriteString(f.generateGroupHTML(group, i+1))
 		}
+	}
+
+	// Add exclusions section if any
+	if len(result.Exclusions) > 0 {
+		sb.WriteString(`
+        <div class="exclusions-section">
+            <h2>Excluded Files and Directories</h2>
+            <table class="exclusions-table">
+                <thead>
+                    <tr>
+                        <th>Path</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>`)
+
+		for _, exclusion := range result.Exclusions {
+			sb.WriteString(fmt.Sprintf(`
+                    <tr>
+                        <td>%s</td>
+                        <td>%s</td>
+                    </tr>`, html.EscapeString(exclusion.Path), html.EscapeString(exclusion.Reason)))
+		}
+
+		sb.WriteString(`
+                </tbody>
+            </table>
+        </div>`)
 	}
 
 	sb.WriteString(`
@@ -451,6 +509,36 @@ func (f *HTMLFormatter) generateDirStatHTML(result *DirStatResult) string {
         .sort-indicator.active {
             opacity: 1;
         }
+        .exclusions-section {
+            margin-top: 40px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        .exclusions-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .exclusions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .exclusions-table th,
+        .exclusions-table td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .exclusions-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .exclusions-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .exclusions-table tr:hover {
+            background-color: #e9ecef;
+        }
     </style>
 </head>
 <body>
@@ -478,8 +566,36 @@ func (f *HTMLFormatter) generateDirStatHTML(result *DirStatResult) string {
             </div>`, formatSize(result.LargestFile.Size)))
 	}
 
-	sb.WriteString(`
+	// Add exclusions section if any
+	if len(result.Exclusions) > 0 {
+		sb.WriteString(`
+        <div class="exclusions-section">
+            <h2>Excluded Files and Directories</h2>
+            <table class="exclusions-table">
+                <thead>
+                    <tr>
+                        <th>Path</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>`)
+
+		for _, exclusion := range result.Exclusions {
+			sb.WriteString(fmt.Sprintf(`
+                    <tr>
+                        <td>%s</td>
+                        <td>%s</td>
+                    </tr>`, html.EscapeString(exclusion.Path), html.EscapeString(exclusion.Reason)))
+		}
+
+		sb.WriteString(`
+                </tbody>
+            </table>
         </div>`)
+	}
+
+	sb.WriteString(`
+    </div>`)
 
 	// File types section
 	if len(result.FileTypes) > 0 {

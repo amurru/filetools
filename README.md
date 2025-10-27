@@ -17,6 +17,7 @@ A collection of command-line tools for efficient file management and analysis, b
 - **Multiple Output Formats**: Support for text, JSON, XML, and HTML output formats
 - **File Output**: Redirect output to files instead of stdout
 - **Flexible Hashing**: Choose from MD5, SHA1, or SHA256 hash algorithms
+- **File/Directory Exclusions**: Exclude files and directories from processing with pattern matching and file type filtering
 - **Structured Data**: JSON/XML output provides machine-readable duplicate file information with metadata
 - **Rich HTML Reports**: Generate professional HTML reports with styling, statistics, and interactive features
 - **Comprehensive Metadata**: All structured outputs include execution context and branding information
@@ -221,6 +222,63 @@ Generates a complete HTML page with:
 - Interactive features: clickable hashes (copy to clipboard), collapsible duplicate groups
 - Program branding footer
 
+### Exclusion Flags
+
+Exclude files and directories from processing while still reporting them in the output.
+
+#### File Exclusions
+
+Exclude files matching patterns or file types:
+
+```bash
+# Exclude specific file patterns (globs)
+filetools dupfind --exclude-file "*.log,*.tmp,cache/*" /path/to/directory
+
+# Exclude by file type (matches extensions)
+filetools dupfind --exclude-file "*.jpg,*.png,*.gif" /path/to/directory
+
+# Combine with other options
+filetools dirstat --exclude-file "*.log,*.tmp" -o json /path/to/directory
+```
+
+#### Directory Exclusions
+
+Exclude entire directories matching patterns:
+
+```bash
+# Exclude common directories
+filetools dupfind --exclude-dir "node_modules,.git,build" /path/to/directory
+
+# Exclude by pattern
+filetools dirstat --exclude-dir "temp*,cache*" /path/to/directory
+```
+
+#### Combined Exclusions
+
+Use both file and directory exclusions together:
+
+```bash
+filetools dupfind --exclude-file "*.log,*.tmp" --exclude-dir "node_modules,.git" /path/to/directory
+```
+
+#### Exclusion Output
+
+Excluded items are listed in the "Exclusions" section of all output formats:
+
+**Text Output:**
+```
+Excluded files and directories:
+- node_modules (dir_pattern)
+- cache/file.log (file_pattern)
+- temp/image.jpg (file_type)
+```
+
+**JSON/XML Output:**
+Excluded items are included in the `exclusions` array with `path` and `reason` fields.
+
+**HTML Output:**
+Exclusions are displayed in a sortable table with professional styling.
+
 ### dirstat
 
 Analyze directory and subdirectories for comprehensive file statistics.
@@ -281,6 +339,9 @@ filetools dirstat -o json -f stats.json /path/to/directory
 
 # Create HTML report
 filetools dirstat -w -f analysis.html /path/to/directory
+
+# Analyze with exclusions
+filetools dirstat --exclude-file "*.log,*.tmp" --exclude-dir "node_modules,.git" -w -f clean-report.html /path/to/directory
 ```
 
 #### Example Outputs

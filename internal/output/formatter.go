@@ -29,9 +29,10 @@ type DuplicateGroup struct {
 
 // DuplicateResult represents the complete result of a duplicate file search
 type DuplicateResult struct {
-	Metadata *Metadata        `json:"metadata" xml:"metadata"`
-	Groups   []DuplicateGroup `json:"groups" xml:"groups"`
-	Found    bool             `json:"found" xml:"found"`
+	Metadata   *Metadata        `json:"metadata" xml:"metadata"`
+	Groups     []DuplicateGroup `json:"groups" xml:"groups"`
+	Found      bool             `json:"found" xml:"found"`
+	Exclusions []Exclusion      `json:"exclusions" xml:"exclusions"`
 }
 
 // FileInfo represents information about a single file
@@ -57,6 +58,12 @@ type DirectoryInfo struct {
 	Percentage float64 `json:"percentage" xml:"percentage"`
 }
 
+// Exclusion represents a file or directory that was excluded from processing
+type Exclusion struct {
+	Path   string `json:"path" xml:"path"`
+	Reason string `json:"reason" xml:"reason"` // "file_pattern", "dir_pattern", "file_type"
+}
+
 // DirStatResult represents the complete result of a directory statistics analysis
 type DirStatResult struct {
 	Metadata    *Metadata       `json:"metadata" xml:"metadata"`
@@ -65,6 +72,7 @@ type DirStatResult struct {
 	LargestFile *FileInfo       `json:"largest_file" xml:"largestFile"`
 	FileTypes   []FileType      `json:"file_types" xml:"fileTypes"`
 	Directories []DirectoryInfo `json:"directories" xml:"directories"`
+	Exclusions  []Exclusion     `json:"exclusions" xml:"exclusions"`
 }
 
 // OutputFormatter defines the interface for different output formats

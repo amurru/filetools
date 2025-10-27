@@ -82,7 +82,7 @@ func TestFindDuplicates(t *testing.T) {
 		t.Fatalf("Failed to create file3: %v", err)
 	}
 
-	hashMap, err := findDuplicates(tmpDir, "md5")
+	hashMap, _, err := findDuplicates(tmpDir, "md5", nil, nil)
 	if err != nil {
 		t.Fatalf("findDuplicates failed: %v", err)
 	}

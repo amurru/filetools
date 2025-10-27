@@ -12,6 +12,7 @@ import (
 	"sort"
 	"time"
 
+	"amurru/filetools/internal/exclusions"
 	"amurru/filetools/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -74,12 +75,28 @@ func calculateHash(filePath, algorithm string) (string, error) {
 }
 
 // findDuplicates traverses the directory and finds duplicate files
-func findDuplicates(rootDir, algorithm string) (map[string][]string, error) {
+func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclusions.ExclusionMatcher) (map[string][]string, []output.Exclusion, error) {
 	hashMap := make(map[string][]string)
+	var exclusionsList []output.Exclusion
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Get relative path for exclusion checking
+		relPath, err := filepath.Rel(rootDir, path)
+		if err != nil {
+			return err
+		}
+
+		// Check for exclusions
+		if exclusion := exclusions.CheckExclusions(relPath, info.IsDir(), fileMatchers, dirMatchers); exclusion != nil {
+			exclusionsList = append(exclusionsList, *exclusion)
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		// Skip directories
@@ -98,7 +115,7 @@ func findDuplicates(rootDir, algorithm string) (map[string][]string, error) {
 		return nil
 	})
 
-	return hashMap, err
+	return hashMap, exclusionsList, err
 }
 
 // runDupfind executes the dupfind command
@@ -117,7 +134,11 @@ func runDupfind(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	hashMap, err := findDuplicates(rootDir, hashAlgorithm)
+	// Parse exclusion patterns
+	fileMatchers := exclusions.ParseExclusions(excludeFilePatterns, true)
+	dirMatchers := exclusions.ParseExclusions(excludeDirPatterns, false)
+
+	hashMap, exclusionsList, err := findDuplicates(rootDir, hashAlgorithm, fileMatchers, dirMatchers)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error traversing directory: %v\n", err)
 		os.Exit(1)
@@ -125,8 +146,9 @@ func runDupfind(cmd *cobra.Command, args []string) {
 
 	// Convert hashMap to structured result
 	result := &output.DuplicateResult{
-		Groups: []output.DuplicateGroup{},
-		Found:  false,
+		Groups:     []output.DuplicateGroup{},
+		Found:      false,
+		Exclusions: exclusionsList,
 	}
 
 	for hash, files := range hashMap {
@@ -174,6 +196,14 @@ func runDupfind(cmd *cobra.Command, args []string) {
 	// Add file flag if specified
 	if outputFile != "" {
 		flags = append(flags, output.Flag{Name: "file", Value: outputFile})
+	}
+
+	// Add exclusion flags if specified
+	if excludeFilePatterns != "" {
+		flags = append(flags, output.Flag{Name: "exclude-file", Value: excludeFilePatterns})
+	}
+	if excludeDirPatterns != "" {
+		flags = append(flags, output.Flag{Name: "exclude-dir", Value: excludeDirPatterns})
 	}
 
 	metadata := &output.Metadata{

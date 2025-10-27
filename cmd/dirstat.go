@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"amurru/filetools/internal/exclusions"
 	"amurru/filetools/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -38,13 +39,14 @@ func init() {
 }
 
 // analyzeDirectory traverses the directory and collects statistics
-func analyzeDirectory(rootDir string) (*output.DirStatResult, error) {
+func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.ExclusionMatcher) (*output.DirStatResult, error) {
 	totalFiles := 0
 	totalSize := int64(0)
 	var largestFile *output.FileInfo
 
 	fileTypes := make(map[string]*output.FileType)
 	directories := make(map[string]*output.DirectoryInfo)
+	var exclusionsList []output.Exclusion
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -58,10 +60,19 @@ func analyzeDirectory(rootDir string) (*output.DirStatResult, error) {
 			return nil
 		}
 
-		// Get relative path for directory tracking
+		// Get relative path for directory tracking and exclusion checking
 		relPath, err := filepath.Rel(rootDir, path)
 		if err != nil {
 			return err
+		}
+
+		// Check for exclusions
+		if exclusion := exclusions.CheckExclusions(relPath, info.IsDir(), fileMatchers, dirMatchers); exclusion != nil {
+			exclusionsList = append(exclusionsList, *exclusion)
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 
 		if info.IsDir() {
@@ -147,6 +158,7 @@ func analyzeDirectory(rootDir string) (*output.DirStatResult, error) {
 		LargestFile: largestFile,
 		FileTypes:   fileTypesSlice,
 		Directories: directoriesSlice,
+		Exclusions:  exclusionsList,
 	}
 
 	return result, nil
@@ -168,8 +180,12 @@ func runDirstat(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Parse exclusion patterns
+	fileMatchers := exclusions.ParseExclusions(excludeFilePatterns, true)
+	dirMatchers := exclusions.ParseExclusions(excludeDirPatterns, false)
+
 	// Analyze directory
-	result, err := analyzeDirectory(rootDir)
+	result, err := analyzeDirectory(rootDir, fileMatchers, dirMatchers)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error analyzing directory: %v\n", err)
 		os.Exit(1)
@@ -195,6 +211,14 @@ func runDirstat(cmd *cobra.Command, args []string) {
 	// Add file flag if specified
 	if outputFile != "" {
 		flags = append(flags, output.Flag{Name: "file", Value: outputFile})
+	}
+
+	// Add exclusion flags if specified
+	if excludeFilePatterns != "" {
+		flags = append(flags, output.Flag{Name: "exclude-file", Value: excludeFilePatterns})
+	}
+	if excludeDirPatterns != "" {
+		flags = append(flags, output.Flag{Name: "exclude-dir", Value: excludeDirPatterns})
 	}
 
 	metadata := &output.Metadata{

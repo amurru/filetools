@@ -15,6 +15,12 @@ var outputFormat string
 // outputFile represents the output file path (empty means stdout)
 var outputFile string
 
+// excludeFilePatterns represents file exclusion patterns (comma-separated)
+var excludeFilePatterns string
+
+// excludeDirPatterns represents directory exclusion patterns (comma-separated)
+var excludeDirPatterns string
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "filetools",
@@ -54,6 +60,10 @@ func init() {
 
 	// Output file flag
 	rootCmd.PersistentFlags().StringVarP(&outputFile, "file", "f", "", "Output file (default: stdout)")
+
+	// Exclusion flags
+	rootCmd.PersistentFlags().StringVar(&excludeFilePatterns, "exclude-file", "", "Exclude files matching patterns (comma-separated globs or file types, e.g., '*.log,*.tmp')")
+	rootCmd.PersistentFlags().StringVar(&excludeDirPatterns, "exclude-dir", "", "Exclude directories matching patterns (comma-separated globs, e.g., 'node_modules,*.git')")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
