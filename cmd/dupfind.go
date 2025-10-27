@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"amurru/filetools/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -121,35 +122,42 @@ func runDupfind(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Find and display duplicates
-	foundDuplicates := false
+	// Convert hashMap to structured result
+	result := &output.DuplicateResult{
+		Groups: []output.DuplicateGroup{},
+		Found:  false,
+	}
+
 	for hash, files := range hashMap {
 		if len(files) > 1 {
-			if !foundDuplicates {
-				fmt.Println("Duplicate files found:")
-				foundDuplicates = true
-			}
+			result.Found = true
 
 			// Sort files alphabetically
 			sort.Strings(files)
 
 			// Get file info for size
-			info, err := os.Stat(files[0])
-			sizeStr := "unknown size"
-			if err == nil {
-				sizeStr = fmt.Sprintf("%d bytes", info.Size())
+			size := int64(-1)
+			if info, err := os.Stat(files[0]); err == nil {
+				size = info.Size()
 			}
 
-			// Display the first file as the "original"
-			fmt.Printf("- %s (size: %s, hash: %s)\n", filepath.Base(files[0]), sizeStr, hash[:8]+"...")
-			for _, file := range files {
-				fmt.Printf("  - %s\n", file)
+			group := output.DuplicateGroup{
+				Hash:  hash,
+				Size:  size,
+				Files: files,
 			}
-			fmt.Println()
+
+			result.Groups = append(result.Groups, group)
 		}
 	}
 
-	if !foundDuplicates {
-		fmt.Println("No duplicate files found.")
+	// Get output format and create formatter
+	format := getOutputFormat(cmd)
+	formatter := output.NewFormatter(format)
+
+	// Output the results
+	if err := formatter.FormatDuplicates(result, os.Stdout); err != nil {
+		fmt.Fprintf(os.Stderr, "Error formatting output: %v\n", err)
+		os.Exit(1)
 	}
 }

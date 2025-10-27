@@ -1,0 +1,16 @@
+package output
+
+import (
+	"encoding/json"
+	"io"
+)
+
+// JSONFormatter implements the OutputFormatter interface for JSON output
+type JSONFormatter struct{}
+
+// FormatDuplicates formats duplicate results as JSON
+func (f *JSONFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writer) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}

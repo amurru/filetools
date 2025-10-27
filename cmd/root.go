@@ -3,8 +3,12 @@ package cmd
 import (
 	"os"
 
+	"amurru/filetools/internal/output"
 	"github.com/spf13/cobra"
 )
+
+// outputFormat represents the desired output format
+var outputFormat string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -37,7 +41,41 @@ func init() {
 
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.filetools.yaml)")
 
+	// Output format flags
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "Output format: text, json, xml, html")
+	rootCmd.PersistentFlags().BoolP("json", "j", false, "Output in JSON format (shortcut for -o json)")
+	rootCmd.PersistentFlags().BoolP("xml", "x", false, "Output in XML format (shortcut for -o xml)")
+	rootCmd.PersistentFlags().BoolP("html", "w", false, "Output in HTML format (shortcut for -o html)")
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// getOutputFormat determines the output format based on flags
+func getOutputFormat(cmd *cobra.Command) output.OutputFormat {
+	// Check shortcut flags first (higher priority)
+	if jsonFlag, _ := cmd.Flags().GetBool("json"); jsonFlag {
+		return output.FormatJSON
+	}
+	if xmlFlag, _ := cmd.Flags().GetBool("xml"); xmlFlag {
+		return output.FormatXML
+	}
+	if htmlFlag, _ := cmd.Flags().GetBool("html"); htmlFlag {
+		return output.FormatHTML
+	}
+
+	// Fall back to the output flag
+	switch outputFormat {
+	case "json":
+		return output.FormatJSON
+	case "xml":
+		return output.FormatXML
+	case "html":
+		return output.FormatHTML
+	case "text":
+		fallthrough
+	default:
+		return output.FormatText
+	}
 }

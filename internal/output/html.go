@@ -1,0 +1,208 @@
+package output
+
+import (
+	"fmt"
+	"html"
+	"io"
+	"sort"
+	"strings"
+)
+
+// HTMLFormatter implements the OutputFormatter interface for HTML output
+type HTMLFormatter struct{}
+
+// FormatDuplicates formats duplicate results as HTML
+func (f *HTMLFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writer) error {
+	htmlContent := f.generateHTML(result)
+	_, err := writer.Write([]byte(htmlContent))
+	return err
+}
+
+// generateHTML creates the complete HTML document
+func (f *HTMLFormatter) generateHTML(result *DuplicateResult) string {
+	var sb strings.Builder
+
+	sb.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplicate Files Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .no-duplicates {
+            text-align: center;
+            color: #666;
+            font-size: 18px;
+            padding: 40px;
+        }
+        .duplicate-group {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .group-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .group-hash {
+            font-family: monospace;
+            color: #007acc;
+            font-weight: bold;
+        }
+        .group-size {
+            color: #666;
+            font-size: 14px;
+        }
+        .file-list {
+            padding: 0;
+            margin: 0;
+        }
+        .file-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-name {
+            font-family: monospace;
+            flex: 1;
+        }
+        .file-badge {
+            background: #28a745;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .file-badge.original {
+            background: #007acc;
+        }
+        .file-badge.duplicate {
+            background: #dc3545;
+        }
+        .summary {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+        }
+        .stat {
+            font-weight: bold;
+            color: #007acc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Duplicate Files Report</h1>`)
+
+	if !result.Found {
+		sb.WriteString(`
+        <div class="no-duplicates">
+            No duplicate files found.
+        </div>`)
+	} else {
+		totalGroups := len(result.Groups)
+		totalFiles := 0
+		for _, group := range result.Groups {
+			totalFiles += len(group.Files)
+		}
+
+		sb.WriteString(fmt.Sprintf(`
+        <div class="summary">
+            <div class="summary-stats">
+                <span class="stat">%d duplicate groups found</span>
+                <span class="stat">%d total duplicate files</span>
+            </div>
+        </div>`, totalGroups, totalFiles))
+
+		for i, group := range result.Groups {
+			sb.WriteString(f.generateGroupHTML(group, i+1))
+		}
+	}
+
+	sb.WriteString(`
+    </div>
+</body>
+</html>`)
+
+	return sb.String()
+}
+
+// generateGroupHTML creates HTML for a single duplicate group
+func (f *HTMLFormatter) generateGroupHTML(group DuplicateGroup, _ int) string {
+	var sb strings.Builder
+
+	// Sort files alphabetically
+	files := make([]string, len(group.Files))
+	copy(files, group.Files)
+	sort.Strings(files)
+
+	sizeStr := "unknown size"
+	if group.Size >= 0 {
+		sizeStr = fmt.Sprintf("%d bytes", group.Size)
+	}
+
+	hashDisplay := group.Hash
+	if len(hashDisplay) > 12 {
+		hashDisplay = hashDisplay[:12] + "..."
+	}
+
+	sb.WriteString(fmt.Sprintf(`
+        <div class="duplicate-group">
+            <div class="group-header">
+                <span class="group-hash">%s</span>
+                <span class="group-size">(%s)</span>
+            </div>
+            <ul class="file-list">`, html.EscapeString(hashDisplay), html.EscapeString(sizeStr)))
+
+	for j, file := range files {
+		badgeClass := "duplicate"
+		badgeText := "DUPLICATE"
+		if j == 0 {
+			badgeClass = "original"
+			badgeText = "ORIGINAL"
+		}
+
+		sb.WriteString(fmt.Sprintf(`
+                <li class="file-item">
+                    <span class="file-name">%s</span>
+                    <span class="file-badge %s">%s</span>
+                </li>`, html.EscapeString(file), badgeClass, badgeText))
+	}
+
+	sb.WriteString(`
+            </ul>
+        </div>`)
+
+	return sb.String()
+}
