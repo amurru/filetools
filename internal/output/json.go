@@ -14,3 +14,10 @@ func (f *JSONFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writ
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
 }
+
+// FormatDirStat formats directory statistics as JSON
+func (f *JSONFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}

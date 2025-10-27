@@ -315,3 +315,325 @@ func (f *HTMLFormatter) generateGroupHTML(group DuplicateGroup, _ int) string {
 
 	return sb.String()
 }
+
+// FormatDirStat formats directory statistics as HTML
+func (f *HTMLFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) error {
+	htmlContent := f.generateDirStatHTML(result)
+	_, err := writer.Write([]byte(htmlContent))
+	return err
+}
+
+// generateDirStatHTML creates the complete HTML document for directory statistics
+func (f *HTMLFormatter) generateDirStatHTML(result *DirStatResult) string {
+	var sb strings.Builder
+
+	sb.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directory Statistics Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .summary {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .summary-item {
+            text-align: center;
+        }
+        .summary-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007acc;
+            display: block;
+        }
+        .summary-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section h2 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .size-col {
+            text-align: right;
+            font-family: monospace;
+        }
+        .count-col {
+            text-align: right;
+        }
+        .percentage-col {
+            text-align: right;
+        }
+        .percentage-bar {
+            display: inline-block;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            width: 60px;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        .percentage-fill {
+            display: block;
+            height: 100%;
+            background: #007acc;
+            border-radius: 4px;
+        }
+        .file-path {
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .no-data {
+            text-align: center;
+            color: #666;
+            padding: 40px;
+            font-style: italic;
+        }
+        .sort-indicator {
+            margin-left: 5px;
+            opacity: 0.5;
+        }
+        .sort-indicator.active {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Directory Statistics Report</h1>`)
+
+	// Summary section
+	sb.WriteString(`
+        <div class="summary">`)
+	sb.WriteString(fmt.Sprintf(`
+            <div class="summary-item">
+                <span class="summary-value">%d</span>
+                <span class="summary-label">Total Files</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-value">%s</span>
+                <span class="summary-label">Total Size</span>
+            </div>`, result.TotalFiles, formatSize(result.TotalSize)))
+
+	if result.LargestFile != nil {
+		sb.WriteString(fmt.Sprintf(`
+            <div class="summary-item">
+                <span class="summary-value">%s</span>
+                <span class="summary-label">Largest File</span>
+            </div>`, formatSize(result.LargestFile.Size)))
+	}
+
+	sb.WriteString(`
+        </div>`)
+
+	// File types section
+	if len(result.FileTypes) > 0 {
+		sb.WriteString(`
+        <div class="section">
+            <h2>File Types</h2>
+            <table id="file-types-table">
+                <thead>
+                    <tr>
+                        <th>Extension</th>
+                        <th class="count-col">Count</th>
+                        <th class="size-col">Size</th>
+                        <th class="percentage-col">Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>`)
+
+		for _, ft := range result.FileTypes {
+			percentage := ft.Percentage
+			sb.WriteString(fmt.Sprintf(`
+                    <tr>
+                        <td>%s</td>
+                        <td class="count-col">%d</td>
+                        <td class="size-col">%s</td>
+                        <td class="percentage-col">%.2f%%<span class="percentage-bar"><span class="percentage-fill" style="width: %.1f%%"></span></span></td>
+                    </tr>`, html.EscapeString(ft.Extension), ft.Count, formatSize(ft.TotalSize), percentage, percentage))
+		}
+
+		sb.WriteString(`
+                </tbody>
+            </table>
+        </div>`)
+	}
+
+	// Directories section
+	if len(result.Directories) > 0 {
+		sb.WriteString(`
+        <div class="section">
+            <h2>Subdirectories</h2>
+            <table id="directories-table">
+                <thead>
+                    <tr>
+                        <th>Path</th>
+                        <th class="count-col">Files</th>
+                        <th class="size-col">Size</th>
+                        <th class="percentage-col">Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>`)
+
+		for _, dir := range result.Directories {
+			percentage := dir.Percentage
+			sb.WriteString(fmt.Sprintf(`
+                    <tr>
+                        <td class="file-path">%s</td>
+                        <td class="count-col">%d</td>
+                        <td class="size-col">%s</td>
+                        <td class="percentage-col">%.2f%%<span class="percentage-bar"><span class="percentage-fill" style="width: %.1f%%"></span></span></td>
+                    </tr>`, html.EscapeString(dir.Path), dir.FileCount, formatSize(dir.TotalSize), percentage, percentage))
+		}
+
+		sb.WriteString(`
+                </tbody>
+            </table>
+        </div>`)
+	}
+
+	sb.WriteString(`
+    </div>`)
+
+	// Add footer with branding
+	if result.Metadata != nil {
+		flags := []string{}
+		for _, f := range result.Metadata.Flags {
+			flags = append(flags, fmt.Sprintf("%s=%s", f.Name, f.Value))
+		}
+		flagStr := strings.Join(flags, ", ")
+		sb.WriteString(fmt.Sprintf(`
+    <footer style="text-align: center; margin-top: 40px; color: #666; font-size: 14px;">
+        Generated by %s %s v%s on %s<br>
+        Flags: %s
+    </footer>`,
+			html.EscapeString(result.Metadata.ToolName),
+			html.EscapeString(result.Metadata.SubCommand),
+			html.EscapeString(result.Metadata.Version),
+			html.EscapeString(result.Metadata.GeneratedAt),
+			html.EscapeString(flagStr)))
+	}
+
+	sb.WriteString(`
+    <script>
+        // Table sorting functionality
+        function makeTableSortable(tableId) {
+            var table = document.getElementById(tableId);
+            if (!table) return;
+
+            var headers = table.querySelectorAll('th');
+            headers.forEach(function(header, index) {
+                header.style.cursor = 'pointer';
+                header.addEventListener('click', function() {
+                    sortTable(table, index);
+                });
+            });
+        }
+
+        function sortTable(table, columnIndex) {
+            var tbody = table.querySelector('tbody');
+            var rows = Array.from(tbody.querySelectorAll('tr'));
+
+            // Remove existing sort indicators
+            table.querySelectorAll('.sort-indicator').forEach(function(indicator) {
+                indicator.classList.remove('active');
+            });
+
+            // Determine sort direction
+            var isNumeric = table.rows[0].cells[columnIndex].classList.contains('count-col') ||
+                           table.rows[0].cells[columnIndex].classList.contains('size-col') ||
+                           table.rows[0].cells[columnIndex].classList.contains('percentage-col');
+
+            rows.sort(function(a, b) {
+                var aVal = a.cells[columnIndex].textContent.trim();
+                var bVal = b.cells[columnIndex].textContent.trim();
+
+                if (isNumeric) {
+                    // Extract numeric value (remove units like %, B, KB, etc.)
+                    var aNum = parseFloat(aVal.replace(/[^\d.]/g, '')) || 0;
+                    var bNum = parseFloat(bVal.replace(/[^\d.]/g, '')) || 0;
+                    return bNum - aNum; // Descending for numeric
+                } else {
+                    return aVal.localeCompare(bVal);
+                }
+            });
+
+            // Re-append sorted rows
+            rows.forEach(function(row) {
+                tbody.appendChild(row);
+            });
+
+            // Add sort indicator
+            var header = table.querySelectorAll('th')[columnIndex];
+            var indicator = header.querySelector('.sort-indicator') || document.createElement('span');
+            indicator.className = 'sort-indicator active';
+            indicator.textContent = '↓';
+            header.appendChild(indicator);
+        }
+
+        // Initialize sortable tables
+        document.addEventListener('DOMContentLoaded', function() {
+            makeTableSortable('file-types-table');
+            makeTableSortable('directories-table');
+        });
+    </script>
+</body>
+</html>`)
+
+	return sb.String()
+}
