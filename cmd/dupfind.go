@@ -151,12 +151,20 @@ func runDupfind(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// Get output writer (file or stdout)
+	writer, cleanup, err := getOutputWriter(cmd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	defer cleanup()
+
 	// Get output format and create formatter
 	format := getOutputFormat(cmd)
 	formatter := output.NewFormatter(format)
 
 	// Output the results
-	if err := formatter.FormatDuplicates(result, os.Stdout); err != nil {
+	if err := formatter.FormatDuplicates(result, writer); err != nil {
 		fmt.Fprintf(os.Stderr, "Error formatting output: %v\n", err)
 		os.Exit(1)
 	}

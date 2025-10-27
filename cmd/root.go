@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
 	"os"
 
 	"amurru/filetools/internal/output"
@@ -9,6 +11,9 @@ import (
 
 // outputFormat represents the desired output format
 var outputFormat string
+
+// outputFile represents the output file path (empty means stdout)
+var outputFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -47,6 +52,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("xml", "x", false, "Output in XML format (shortcut for -o xml)")
 	rootCmd.PersistentFlags().BoolP("html", "w", false, "Output in HTML format (shortcut for -o html)")
 
+	// Output file flag
+	rootCmd.PersistentFlags().StringVarP(&outputFile, "file", "f", "", "Output file (default: stdout)")
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -78,4 +86,22 @@ func getOutputFormat(cmd *cobra.Command) output.OutputFormat {
 	default:
 		return output.FormatText
 	}
+}
+
+// getOutputWriter returns an io.Writer for output (file or stdout) and a cleanup function
+func getOutputWriter(cmd *cobra.Command) (io.Writer, func(), error) {
+	fileFlag, _ := cmd.Flags().GetString("file")
+	if fileFlag == "" {
+		// No file specified, use stdout
+		return os.Stdout, func() {}, nil
+	}
+
+	// Create output file
+	file, err := os.Create(fileFlag)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create output file '%s': %w", fileFlag, err)
+	}
+
+	// Return file writer and cleanup function
+	return file, func() { file.Close() }, nil
 }
