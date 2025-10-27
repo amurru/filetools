@@ -12,17 +12,17 @@ type Flag struct {
 
 // Metadata contains information about the tool execution
 type Metadata struct {
-	ToolName    string `json:"toolName" xml:"toolName"`
-	SubCommand  string `json:"subCommand" xml:"subCommand"`
+	ToolName    string `json:"tool_name" xml:"toolName"`
+	SubCommand  string `json:"sub_command" xml:"subCommand"`
 	Flags       []Flag `json:"flags" xml:"flags>flag"`
 	Version     string `json:"version" xml:"version"`
-	GeneratedAt string `json:"generatedAt" xml:"generatedAt"`
+	GeneratedAt string `json:"generated_at" xml:"generatedAt"`
 }
 
 // DuplicateGroup represents a group of duplicate files with the same hash
 type DuplicateGroup struct {
 	Hash     string   `json:"hash" xml:"hash"`
-	HashType string   `json:"hashType" xml:"hashType"`
+	HashType string   `json:"hash_type" xml:"hashType"`
 	Size     int64    `json:"size" xml:"size"`
 	Files    []string `json:"files" xml:"files"`
 }
