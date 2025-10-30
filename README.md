@@ -2,6 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.24.5-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![SLSA Go releaser](https://github.com/amurru/filetools/actions/workflows/go-ossf-slsa3-publish.yml/badge.svg)](https://github.com/amurru/filetools/actions/workflows/go-ossf-slsa3-publish.yml)
 
 A collection of command-line tools for efficient file management and analysis, built with Go.
 
@@ -266,6 +267,7 @@ filetools dupfind --exclude-file "*.log,*.tmp" --exclude-dir "node_modules,.git"
 Excluded items are listed in the "Exclusions" section of all output formats:
 
 **Text Output:**
+
 ```
 Excluded files and directories:
 - node_modules (dir_pattern)
