@@ -1,6 +1,9 @@
 # Version for this file.
 version: 1
 
+goos: windows
+goarch: amd64
+
 # Binary output name.
 # {{ .Os }} will be replaced by goos field in the config file.
 # {{ .Arch }} will be replaced by goarch field in the config file.
