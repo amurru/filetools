@@ -21,3 +21,10 @@ func (f *JSONFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) e
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
 }
+
+// FormatRename formats rename results as JSON
+func (f *JSONFormatter) FormatRename(result *RenameResult, writer io.Writer) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}

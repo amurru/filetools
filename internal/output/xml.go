@@ -47,3 +47,23 @@ func (f *XMLFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) er
 	_, err := writer.Write([]byte("\n"))
 	return err
 }
+
+// FormatRename formats rename results as XML
+func (f *XMLFormatter) FormatRename(result *RenameResult, writer io.Writer) error {
+	encoder := xml.NewEncoder(writer)
+	encoder.Indent("", "  ")
+
+	// Write XML header
+	if _, err := writer.Write([]byte(xml.Header)); err != nil {
+		return err
+	}
+
+	// Encode the result
+	if err := encoder.Encode(result); err != nil {
+		return err
+	}
+
+	// Write a newline at the end
+	_, err := writer.Write([]byte("\n"))
+	return err
+}

@@ -64,6 +64,13 @@ type Exclusion struct {
 	Reason string `json:"reason" xml:"reason"` // "file_pattern", "dir_pattern", "file_type"
 }
 
+// RenameOperation represents a single rename operation
+type RenameOperation struct {
+	OldPath string `json:"old_path" xml:"oldPath"`
+	NewPath string `json:"new_path" xml:"newPath"`
+	Error   string `json:"error,omitempty" xml:"error,omitempty"`
+}
+
 // DirStatResult represents the complete result of a directory statistics analysis
 type DirStatResult struct {
 	Metadata    *Metadata       `json:"metadata" xml:"metadata"`
@@ -75,10 +82,19 @@ type DirStatResult struct {
 	Exclusions  []Exclusion     `json:"exclusions" xml:"exclusions"`
 }
 
+// RenameResult represents the complete result of a rename operation
+type RenameResult struct {
+	Metadata   *Metadata         `json:"metadata" xml:"metadata"`
+	Operations []RenameOperation `json:"operations" xml:"operations"`
+	DryRun     bool              `json:"dry_run" xml:"dryRun"`
+	Exclusions []Exclusion       `json:"exclusions" xml:"exclusions"`
+}
+
 // OutputFormatter defines the interface for different output formats
 type OutputFormatter interface {
 	FormatDuplicates(result *DuplicateResult, writer io.Writer) error
 	FormatDirStat(result *DirStatResult, writer io.Writer) error
+	FormatRename(result *RenameResult, writer io.Writer) error
 }
 
 // OutputFormat represents the supported output formats

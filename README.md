@@ -11,6 +11,7 @@ A collection of command-line tools for efficient file management and analysis, b
 
 - **dupfind**: Find duplicate files in a directory tree by comparing file hashes. Efficiently identifies identical files regardless of filename or location.
 - **dirstat**: Analyze directory and subdirectories for comprehensive file statistics including sizes, types, and utilization percentages.
+- **rename**: Rename files in a directory using pattern matching and sed-like replacements.
 
 ### Key Features
 
@@ -25,7 +26,6 @@ A collection of command-line tools for efficient file management and analysis, b
 ### Planned Tools
 
 - File organizer
-- Batch renamer
 - File size analyzer
 
 ## Installation
@@ -283,6 +283,10 @@ Exclusions are displayed in a sortable table with professional styling.
 
 Analyze directory and subdirectories for comprehensive file statistics.
 
+### rename
+
+Rename files in a directory using pattern matching and sed-like replacements.
+
 #### Basic Usage
 
 Analyze a directory for file statistics:
@@ -497,6 +501,84 @@ These flags work with all commands:
 ### dirstat Flags
 
 The `dirstat` command uses only the global flags (no command-specific flags).
+
+### rename
+
+Rename files in a directory using pattern matching and sed-like replacements.
+
+#### Basic Usage
+
+Rename files in a directory:
+
+```bash
+filetools rename --match "*.jpg" --sed "s/^/vacation_/" /photos
+```
+
+If no directory is specified, it uses the current directory:
+
+```bash
+filetools rename --match "*.txt" --sed "s/draft/final/g"
+```
+
+#### Output Formats
+
+Choose from multiple output formats:
+
+```bash
+# Text output (default)
+filetools rename --match "*.jpg" --sed "s/old/new/" /path
+
+# JSON output
+filetools rename -o json --match "*.jpg" --sed "s/old/new/" /path
+
+# XML output
+filetools rename -o xml --match "*.jpg" --sed "s/old/new/" /path
+
+# HTML output
+filetools rename -o html --match "*.jpg" --sed "s/old/new/" /path
+```
+
+#### Examples
+
+Add prefix to all JPG files:
+
+```bash
+filetools rename --match "*.jpg" --sed "s/^/vacation_/" /photos
+```
+
+Remove suffix from files:
+
+```bash
+filetools rename --match "*_old.jpg" --sed "s/_old//" /photos
+```
+
+General replacement:
+
+```bash
+filetools rename --match "*.txt" --sed "s/draft/final/g" /docs
+```
+
+#### Dry Run (Default)
+
+By default, the command runs in dry-run mode for safety:
+
+```bash
+filetools rename --match "*.jpg" --sed "s/old/new/" /photos
+# Shows what would be renamed without making changes
+```
+
+To actually perform the renames:
+
+```bash
+filetools rename --force --match "*.jpg" --sed "s/old/new/" /photos
+```
+
+#### rename Flags
+
+- `--match string`: File pattern to match (glob, required)
+- `--sed string`: Sed-style replacement expression (e.g., s/old/new/g, required)
+- `--dry-run`: Preview changes without executing (default: true)
+- `--force`: Perform actual renames and overwrite existing files
 
 ### Examples
 
