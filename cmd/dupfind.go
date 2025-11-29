@@ -75,10 +75,25 @@ func calculateHash(filePath, algorithm string) (string, error) {
 }
 
 // findDuplicates traverses the directory and finds duplicate files
-func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclusions.ExclusionMatcher) (map[string][]string, []output.Exclusion, error) {
+func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclusions.ExclusionMatcher, progress output.ProgressIndicator) (map[string][]string, []output.Exclusion, error) {
 	hashMap := make(map[string][]string)
 	var exclusionsList []output.Exclusion
 
+	// Count total files first for progress indication
+	totalCount := int64(0)
+	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			totalCount++
+		}
+		return nil
+	})
+
+	progress.Start(totalCount, "Finding duplicate files")
+
+	processedCount := int64(0)
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -112,6 +127,8 @@ func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclu
 		}
 
 		hashMap[hash] = append(hashMap[hash], path)
+		processedCount++
+		progress.Increment()
 		return nil
 	})
 
@@ -138,7 +155,11 @@ func runDupfind(cmd *cobra.Command, args []string) {
 	fileMatchers := exclusions.ParseExclusions(excludeFilePatterns, true)
 	dirMatchers := exclusions.ParseExclusions(excludeDirPatterns, false)
 
-	hashMap, exclusionsList, err := findDuplicates(rootDir, hashAlgorithm, fileMatchers, dirMatchers)
+	// Create progress indicator
+	progress := output.NewProgressIndicator(cmd)
+	defer progress.Finish()
+
+	hashMap, exclusionsList, err := findDuplicates(rootDir, hashAlgorithm, fileMatchers, dirMatchers, progress)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error traversing directory: %v\n", err)
 		os.Exit(1)

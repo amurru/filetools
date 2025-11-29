@@ -86,8 +86,12 @@ func runRename(cmd *cobra.Command, args []string) {
 	fileMatchers := exclusions.ParseExclusions(excludeFilePatterns, true)
 	dirMatchers := exclusions.ParseExclusions(excludeDirPatterns, false)
 
+	// Create progress indicator
+	progress := output.NewProgressIndicator(cmd)
+	defer progress.Finish()
+
 	// Perform rename operations
-	operations, exclusionsList, err := performRenames(rootDir, matchPattern, sedRegex, replacement, global, isDryRun, forceOverwrite, fileMatchers, dirMatchers)
+	operations, exclusionsList, err := performRenames(rootDir, matchPattern, sedRegex, replacement, global, isDryRun, forceOverwrite, fileMatchers, dirMatchers, progress)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error performing renames: %v\n", err)
 		os.Exit(1)
@@ -184,10 +188,25 @@ func parseSedExpression(expr string) (*regexp.Regexp, string, bool, error) {
 }
 
 // performRenames traverses the directory and performs rename operations
-func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, replacement string, global bool, isDryRun, forceOverwrite bool, fileMatchers, dirMatchers []exclusions.ExclusionMatcher) ([]output.RenameOperation, []output.Exclusion, error) {
+func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, replacement string, global bool, isDryRun, forceOverwrite bool, fileMatchers, dirMatchers []exclusions.ExclusionMatcher, progress output.ProgressIndicator) ([]output.RenameOperation, []output.Exclusion, error) {
 	var operations []output.RenameOperation
 	var exclusionsList []output.Exclusion
 
+	// Count total files first for progress indication
+	totalCount := int64(0)
+	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			totalCount++
+		}
+		return nil
+	})
+
+	progress.Start(totalCount, "Processing files for rename")
+
+	processedCount := int64(0)
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
@@ -271,6 +290,8 @@ func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, repla
 		}
 
 		operations = append(operations, op)
+		processedCount++
+		progress.Increment()
 		return nil
 	})
 

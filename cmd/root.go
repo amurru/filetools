@@ -21,6 +21,9 @@ var excludeFilePatterns string
 // excludeDirPatterns represents directory exclusion patterns (comma-separated)
 var excludeDirPatterns string
 
+// noProgress disables progress bar indicators
+var noProgress bool
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "filetools",
@@ -64,6 +67,9 @@ func init() {
 	// Exclusion flags
 	rootCmd.PersistentFlags().StringVar(&excludeFilePatterns, "exclude-file", "", "Exclude files matching patterns (comma-separated globs or file types, e.g., '*.log,*.tmp')")
 	rootCmd.PersistentFlags().StringVar(&excludeDirPatterns, "exclude-dir", "", "Exclude directories matching patterns (comma-separated globs, e.g., 'node_modules,*.git')")
+
+	// Progress flag
+	rootCmd.PersistentFlags().BoolVar(&noProgress, "no-progress", false, "Disable progress bar indicators")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

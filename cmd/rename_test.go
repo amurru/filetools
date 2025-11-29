@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"amurru/filetools/internal/output"
 )
 
 func TestParseSedExpression(t *testing.T) {
@@ -64,7 +66,7 @@ func TestPerformRenames(t *testing.T) {
 
 	// Test rename
 	re, _ := regexp.Compile("test")
-	ops, excl, err := performRenames(tmpDir, "*.jpg", re, "renamed", false, true, false, nil, nil)
+	ops, excl, err := performRenames(tmpDir, "*.jpg", re, "renamed", false, true, false, nil, nil, &output.NoOpProgressIndicator{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +110,7 @@ func TestPerformRenamesDryRun(t *testing.T) {
 	}
 
 	re, _ := regexp.Compile("old")
-	ops, _, err := performRenames(tmpDir, "*.jpg", re, "new", false, true, false, nil, nil)
+	ops, _, err := performRenames(tmpDir, "*.jpg", re, "new", false, true, false, nil, nil, &output.NoOpProgressIndicator{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +150,7 @@ func TestPerformRenamesMultipleDirs(t *testing.T) {
 
 	// Test rename
 	re, _ := regexp.Compile("test")
-	ops, excl, err := performRenames(tmpDir, "*.jpg", re, "renamed", false, true, false, nil, nil)
+	ops, excl, err := performRenames(tmpDir, "*.jpg", re, "renamed", false, true, false, nil, nil, &output.NoOpProgressIndicator{})
 	if err != nil {
 		t.Fatal(err)
 	}

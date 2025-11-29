@@ -39,7 +39,7 @@ func init() {
 }
 
 // analyzeDirectory traverses the directory and collects statistics
-func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.ExclusionMatcher) (*output.DirStatResult, error) {
+func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.ExclusionMatcher, progress output.ProgressIndicator) (*output.DirStatResult, error) {
 	totalFiles := 0
 	totalSize := int64(0)
 	var largestFile *output.FileInfo
@@ -48,6 +48,21 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 	directories := make(map[string]*output.DirectoryInfo)
 	var exclusionsList []output.Exclusion
 
+	// Count total files first for progress indication
+	totalCount := int64(0)
+	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			totalCount++
+		}
+		return nil
+	})
+
+	progress.Start(totalCount, "Analyzing files")
+
+	processedCount := int64(0)
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// Skip files/directories we can't access
@@ -86,6 +101,8 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 			// File statistics
 			totalFiles++
 			totalSize += info.Size()
+			processedCount++
+			progress.Increment()
 
 			// Track largest file
 			if largestFile == nil || info.Size() > largestFile.Size {
@@ -184,8 +201,12 @@ func runDirstat(cmd *cobra.Command, args []string) {
 	fileMatchers := exclusions.ParseExclusions(excludeFilePatterns, true)
 	dirMatchers := exclusions.ParseExclusions(excludeDirPatterns, false)
 
+	// Create progress indicator
+	progress := output.NewProgressIndicator(cmd)
+	defer progress.Finish()
+
 	// Analyze directory
-	result, err := analyzeDirectory(rootDir, fileMatchers, dirMatchers)
+	result, err := analyzeDirectory(rootDir, fileMatchers, dirMatchers, progress)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error analyzing directory: %v\n", err)
 		os.Exit(1)
