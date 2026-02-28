@@ -41,6 +41,9 @@ func (s *SimpleProgressIndicator) Start(total int64, description string) {
 	s.lastShown = 0
 	if s.enabled && s.total > 0 {
 		fmt.Fprintf(os.Stderr, "%s: 0/%d (0.0%%)\n", description, total)
+	} else if s.enabled {
+		// Unknown total - just show description
+		fmt.Fprintf(os.Stderr, "%s: ...\n", description)
 	}
 }
 
@@ -64,6 +67,9 @@ func (s *SimpleProgressIndicator) Finish() {
 	if s.enabled && s.total > 0 {
 		percentage := float64(s.total) / float64(s.total) * 100
 		fmt.Fprintf(os.Stderr, "%s: %d/%d (%.1f%%)\n", s.description, s.total, s.total, percentage)
+	} else if s.enabled {
+		// Unknown total - show final count
+		fmt.Fprintf(os.Stderr, "%s: %d items processed\n", s.description, s.current)
 	}
 }
 
@@ -72,6 +78,16 @@ func (s *SimpleProgressIndicator) IsEnabled() bool {
 }
 
 func (s *SimpleProgressIndicator) updateProgress() {
+	// Handle unknown total
+	if s.total <= 0 {
+		updateInterval := int64(100)
+		if s.current-s.lastShown >= updateInterval {
+			fmt.Fprintf(os.Stderr, "%s: %d processed...\n", s.description, s.current)
+			s.lastShown = s.current
+		}
+		return
+	}
+
 	// Update progress display based on total size
 	var updateInterval int64
 	if s.total <= 10 {

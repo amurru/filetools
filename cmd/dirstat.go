@@ -48,21 +48,10 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 	directories := make(map[string]*output.DirectoryInfo)
 	var exclusionsList []output.Exclusion
 
-	// Count total files first for progress indication
-	totalCount := int64(0)
-	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !info.IsDir() {
-			totalCount++
-		}
-		return nil
-	})
+	// Single-pass walk: collect stats dynamically
+	// Start with estimated count for progress (will increment as we go)
+	progress.Start(-1, "Analyzing files")
 
-	progress.Start(totalCount, "Analyzing files")
-
-	processedCount := int64(0)
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// Skip files/directories we can't access
@@ -101,7 +90,6 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 			// File statistics
 			totalFiles++
 			totalSize += info.Size()
-			processedCount++
 			progress.Increment()
 
 			// Track largest file
