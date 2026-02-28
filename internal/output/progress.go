@@ -140,7 +140,7 @@ func NewProgressIndicator(cmd *cobra.Command) ProgressIndicator {
 }
 
 // Helper function to check if file descriptor is a terminal
-func isTerminal(f *os.File) bool {
+func isTerminal(_ *os.File) bool {
 	// Simple check - in a real implementation we'd use unix.Isatty
 	// For now, assume it's a terminal unless we know otherwise
 	return true
