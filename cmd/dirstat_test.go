@@ -25,9 +25,9 @@ func TestAnalyzeDirectory(t *testing.T) {
 
 	// Create files with different extensions and sizes
 	files := map[string]int{
-		"file1.txt":  100,
-		"file2.txt":  200,
-		"file3.md":   150,
+		"file1.txt":        100,
+		"file2.txt":        200,
+		"file3.md":         150,
 		"subdir/file4.txt": 300,
 	}
 
