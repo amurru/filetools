@@ -192,21 +192,9 @@ func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, repla
 	var operations []output.RenameOperation
 	var exclusionsList []output.Exclusion
 
-	// Count total files first for progress indication
-	totalCount := int64(0)
-	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !info.IsDir() {
-			totalCount++
-		}
-		return nil
-	})
+	// Single-pass walk: process files dynamically
+	progress.Start(-1, "Processing files for rename")
 
-	progress.Start(totalCount, "Processing files for rename")
-
-	processedCount := int64(0)
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
@@ -290,7 +278,6 @@ func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, repla
 		}
 
 		operations = append(operations, op)
-		processedCount++
 		progress.Increment()
 		return nil
 	})
