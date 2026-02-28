@@ -9,7 +9,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"sync"
 	"time"
 
 	"amurru/filetools/internal/exclusions"
@@ -74,26 +76,72 @@ func calculateHash(filePath, algorithm string) (string, error) {
 	return hex.EncodeToString(hash), nil
 }
 
+// hashFilesConcurrently hashes multiple files concurrently using a worker pool
+func hashFilesConcurrently(files []string, algorithm string, progress output.ProgressIndicator) []hashResult {
+	numWorkers := runtime.NumCPU()
+	if len(files) < numWorkers {
+		numWorkers = len(files) // Don't create more workers than files
+	}
+
+	jobs := make(chan hashJob, len(files))
+	results := make(chan hashResult, len(files))
+
+	// Start workers
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				hash, err := calculateHash(job.path, algorithm)
+				results <- hashResult{job.path, hash, err}
+			}
+		}()
+	}
+
+	// Send jobs
+	for _, file := range files {
+		jobs <- hashJob{path: file}
+	}
+	close(jobs)
+
+	// Wait for completion in background
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	var output []hashResult
+	for result := range results {
+		output = append(output, result)
+		progress.Increment()
+	}
+
+	return output
+}
+
+// hashJob represents a file hashing task
+type hashJob struct {
+	path string
+}
+
+// hashResult represents the result of a hashing operation
+type hashResult struct {
+	path  string
+	hash  string
+	error error
+}
+
 // findDuplicates traverses the directory and finds duplicate files
 func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclusions.ExclusionMatcher, progress output.ProgressIndicator) (map[string][]string, []output.Exclusion, error) {
 	hashMap := make(map[string][]string)
 	var exclusionsList []output.Exclusion
 
-	// Count total files first for progress indication
+	// Single walk: collect files grouped by size
+	sizeGroups := make(map[int64][]string)
 	totalCount := int64(0)
-	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !info.IsDir() {
-			totalCount++
-		}
-		return nil
-	})
 
-	progress.Start(totalCount, "Finding duplicate files")
-
-	processedCount := int64(0)
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -119,20 +167,40 @@ func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclu
 			return nil
 		}
 
-		hash, err := calculateHash(path, algorithm)
-		if err != nil {
-			// Skip files that can't be hashed (permission issues, etc.)
-			fmt.Fprintf(os.Stderr, "Warning: could not hash file %s: %v\n", path, err)
-			return nil
-		}
-
-		hashMap[hash] = append(hashMap[hash], path)
-		processedCount++
-		progress.Increment()
+		// Group files by size
+		size := info.Size()
+		sizeGroups[size] = append(sizeGroups[size], path)
+		totalCount++
 		return nil
 	})
 
-	return hashMap, exclusionsList, err
+	if err != nil {
+		return nil, exclusionsList, err
+	}
+
+	progress.Start(totalCount, "Finding duplicate files")
+
+	// Process each size group that has potential duplicates
+	for _, files := range sizeGroups {
+		if len(files) <= 1 {
+			// No duplicates possible for this size
+			continue
+		}
+
+		// Concurrently hash files in this size group
+		results := hashFilesConcurrently(files, algorithm, progress)
+
+		// Collect results
+		for _, result := range results {
+			if result.error != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not hash file %s: %v\n", result.path, result.error)
+				continue
+			}
+			hashMap[result.hash] = append(hashMap[result.hash], result.path)
+		}
+	}
+
+	return hashMap, exclusionsList, nil
 }
 
 // runDupfind executes the dupfind command

@@ -99,16 +99,20 @@ func NewProgressIndicator(cmd *cobra.Command) ProgressIndicator {
 	// Check if progress bars should be disabled
 	noProgressFlag, _ := cmd.Flags().GetBool("no-progress")
 
-	// Disable progress bars if output is going to a file (not stdout)
+	// Check if output is going to a file (not stdout)
 	outputFile, _ := cmd.Flags().GetString("file")
 	outputToFile := outputFile != ""
 
-	// Disable progress bars for structured output formats
+	// Check if output format is structured
 	outputFormat := getOutputFormatFromCmd(cmd)
 	structuredOutput := outputFormat != FormatText
 
+	// Only disable progress for structured file output (to avoid breaking parsers)
+	// Allow progress for text file output since it's human-readable
+	fileOutputStructured := outputToFile && structuredOutput
+
 	// Disable progress bars if stderr is not a terminal
-	enabled := !noProgressFlag && !outputToFile && !structuredOutput && isTerminal(os.Stderr)
+	enabled := !noProgressFlag && !fileOutputStructured && isTerminal(os.Stderr)
 
 	if !enabled {
 		return &NoOpProgressIndicator{}
