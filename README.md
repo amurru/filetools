@@ -13,6 +13,8 @@ A collection of command-line tools for efficient file management and analysis, b
 - **dupfind**: Find duplicate files in a directory tree by comparing file hashes. Efficiently identifies identical files regardless of filename or location.
 - **dirstat**: Analyze directory and subdirectories for comprehensive file statistics including sizes, types, and utilization percentages.
 - **rename**: Rename files in a directory using pattern matching and sed-like replacements.
+- **organize**: Sort files into per-category subdirectories by type, extension, modification date or size.
+- **size**: Analyze how much space the files of a directory tree take up and report the largest ones.
 
 ### Key Features
 
@@ -26,8 +28,8 @@ A collection of command-line tools for efficient file management and analysis, b
 
 ### Planned Tools
 
-- File organizer
-- File size analyzer
+- File content search
+- Disk usage by owner
 
 ## Installation
 
@@ -436,6 +438,94 @@ Generates a complete HTML page with:
 - Responsive design
 - Program branding footer
 
+### organize
+
+Sort files into per-category subdirectories.
+
+#### Basic Usage
+
+Preview how the files of a directory would be organized:
+
+```bash
+filetools organize /path/to/directory
+```
+
+Group the files by a different criteria:
+
+```bash
+# One directory per file extension
+filetools organize --by extension /path/to/directory
+
+# One directory per month of the modification date
+filetools organize --by date /path/to/directory
+
+# One directory per size range
+filetools organize --by size /path/to/directory
+```
+
+Move the files into a separate destination directory:
+
+```bash
+filetools organize --dest /path/to/sorted --force /path/to/directory
+```
+
+#### Categories
+
+| `--by` | Example directory | Description |
+| --- | --- | --- |
+| `type` | `images/` | Broad categories: images, video, audio, documents, archives, code, data, other |
+| `extension` | `png/` | One directory per file extension |
+| `date` | `2024-03/` | One directory per month of the modification date |
+| `size` | `1 MB - 10 MB/` | One directory per size range |
+
+#### Dry Run (Default)
+
+By default the command only reports what it would do:
+
+```bash
+filetools organize /path/to/directory
+```
+
+To actually move the files:
+
+```bash
+filetools organize --force /path/to/directory
+```
+
+Existing files at the target are never replaced unless `--overwrite` is given.
+
+#### organize Flags
+
+- `--by string`: Group files by type, extension, date or size (default "type")
+- `--dest string`: Destination directory (default: the scanned directory)
+- `--force`: Move the files (disables dry-run)
+- `--overwrite`: Replace files that already exist at the target
+- `--include-hidden`: Also organize hidden files
+- `--category string`: Only organize files belonging to this category
+
+### size
+
+Analyze how much space the files of a directory tree take up.
+
+#### Basic Usage
+
+```bash
+filetools size /path/to/directory
+```
+
+Report more of the largest files:
+
+```bash
+filetools size --top 25 /path/to/directory
+```
+
+The report contains the total file count, total size, directory count, the
+distribution of the files over size ranges and the largest files of the tree.
+
+#### size Flags
+
+- `--top int`: Number of largest files to report (default 10)
+
 ### Version
 
 Check the version and build information:
@@ -457,17 +547,27 @@ date: 2025-10-27T14:30:45Z
 filetools/
 ├── cmd/                    # CLI commands
 │   ├── dirstat.go         # Directory statistics command
+│   ├── dirstat_test.go    # Tests for dirstat
 │   ├── dupfind.go         # Duplicate file finder command
 │   ├── dupfind_test.go    # Tests for dupfind
+│   ├── organize.go        # File organizer command
+│   ├── organize_test.go   # Tests for organize
+│   ├── rename.go          # Batch rename command
+│   ├── rename_test.go     # Tests for rename
 │   ├── root.go            # Root command and global flags
+│   ├── size.go            # File size analyzer command
+│   ├── size_test.go       # Tests for size
 │   └── version.go         # Version command
 ├── internal/
+│   ├── exclusions/        # Exclusion pattern matching
+│   │   └── exclusions.go
 │   └── output/            # Output formatting module
 │       ├── formatter.go   # Core interfaces and data structures
 │       ├── json.go        # JSON formatter
 │       ├── xml.go         # XML formatter
 │       ├── html.go        # HTML formatter
 │       ├── text.go        # Text formatter
+│       ├── progress.go    # Progress indicators
 │       └── formatter_test.go # Output tests
 ├── main.go                # Application entry point
 ├── go.mod                 # Go module definition
@@ -495,6 +595,9 @@ These flags work with all commands:
 - `-j, --json`: Shortcut for `-o json`
 - `-x, --xml`: Shortcut for `-o xml`
 - `-w, --html`: Shortcut for `-o html`
+- `--exclude-file string`: Exclude files matching patterns (comma-separated globs or file types)
+- `--exclude-dir string`: Exclude directories matching patterns (comma-separated globs)
+- `--no-progress`: Disable progress indicators
 
 ### dupfind Flags
 
@@ -503,6 +606,19 @@ These flags work with all commands:
 ### dirstat Flags
 
 The `dirstat` command uses only the global flags (no command-specific flags).
+
+### organize Flags
+
+- `--by string`: Group files by type, extension, date or size (default "type")
+- `--dest string`: Destination directory (default: the scanned directory)
+- `--force`: Move the files (disables dry-run)
+- `--overwrite`: Replace files that already exist at the target
+- `--include-hidden`: Also organize hidden files
+- `--category string`: Only organize files belonging to this category
+
+### size Flags
+
+- `--top int`: Number of largest files to report (default 10)
 
 ### rename
 
@@ -589,6 +705,8 @@ filetools rename --force --match "*.jpg" --sed "s/old/new/" /photos
 filetools --help
 filetools dupfind --help
 filetools dirstat --help
+filetools organize --help
+filetools size --help
 
 # Different output combinations
 filetools dupfind -j -f results.json /path
@@ -598,6 +716,13 @@ filetools dupfind -w /path > report.html
 # Directory statistics
 filetools dirstat -j -f stats.json /path
 filetools dirstat -w -f analysis.html /path
+
+# Organize files into category directories
+filetools organize --by type --force /path
+filetools organize --by extension -j -f plan.json /path
+
+# Size analysis
+filetools size --top 20 -j -f sizes.json /path
 ```
 
 ## Development
