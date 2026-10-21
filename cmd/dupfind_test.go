@@ -76,7 +76,7 @@ func TestFindDuplicatesWithExclusions(t *testing.T) {
 	// Excluding one of them leaves no duplicates behind
 	fileMatchers := exclusions.ParseExclusions("file2.txt", true)
 
-	hashMap, exclusionsList, err := findDuplicates(tmpDir, "md5", fileMatchers, nil, &output.NoOpProgressIndicator{})
+	hashMap, exclusionsList, err := findDuplicates(tmpDir, "md5", 0, 0, fileMatchers, nil, &output.NoOpProgressIndicator{})
 	if err != nil {
 		t.Fatalf("findDuplicates failed: %v", err)
 	}
@@ -89,6 +89,200 @@ func TestFindDuplicatesWithExclusions(t *testing.T) {
 		if len(files) > 1 {
 			t.Errorf("Expected no duplicate groups after exclusion, got %v", files)
 		}
+	}
+}
+
+func TestParseSize(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int64
+		wantErr  bool
+	}{
+		{"", 0, false},
+		{"1024", 1024, false},
+		{"1K", 1024, false},
+		{"1KB", 1024, false},
+		{"1kib", 1024, false},
+		{"5M", 5 * 1024 * 1024, false},
+		{"10MB", 10 * 1024 * 1024, false},
+		{"1G", 1024 * 1024 * 1024, false},
+		{"2.5M", int64(2.5 * 1024 * 1024), false},
+		{"abc", 0, true},
+		{"-1", 0, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			size, err := parseSize(test.input)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("parseSize(%q) error = %v, wantErr %v", test.input, err, test.wantErr)
+			}
+			if err == nil && size != test.expected {
+				t.Errorf("parseSize(%q) = %d, want %d", test.input, size, test.expected)
+			}
+		})
+	}
+}
+
+func TestCalculatePartialHashMatchesFullHashForSmallFiles(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "testfile")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	content := make([]byte, 1024)
+	for i := range content {
+		content[i] = byte(i % 256)
+	}
+	if _, err := tmpFile.Write(content); err != nil {
+		t.Fatalf("Failed to write to temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	full, err := calculateHash(tmpFile.Name(), "md5")
+	if err != nil {
+		t.Fatalf("calculateHash failed: %v", err)
+	}
+
+	partial, err := calculatePartialHash(tmpFile.Name(), "md5")
+	if err != nil {
+		t.Fatalf("calculatePartialHash failed: %v", err)
+	}
+
+	if partial != full {
+		t.Errorf("Expected partial hash %s to equal full hash %s for a small file", partial, full)
+	}
+}
+
+func TestCalculatePartialHashDiffersForLargeFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	// Two files of the same size sharing their first bytes but differing later
+	content := make([]byte, 2*partialHashSize)
+	for i := range content {
+		content[i] = byte(i % 256)
+	}
+
+	first := filepath.Join(dir, "first.bin")
+	second := filepath.Join(dir, "second.bin")
+
+	if err := os.WriteFile(first, content, 0644); err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+
+	altered := make([]byte, len(content))
+	copy(altered, content)
+	altered[len(altered)-1] ^= 0xFF
+	if err := os.WriteFile(second, altered, 0644); err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+
+	firstPartial, err := calculatePartialHash(first, "md5")
+	if err != nil {
+		t.Fatalf("calculatePartialHash failed: %v", err)
+	}
+	secondPartial, err := calculatePartialHash(second, "md5")
+	if err != nil {
+		t.Fatalf("calculatePartialHash failed: %v", err)
+	}
+
+	if firstPartial != secondPartial {
+		t.Error("Expected the fingerprints of the shared prefix to match")
+	}
+
+	firstFull, err := calculateHash(first, "md5")
+	if err != nil {
+		t.Fatalf("calculateHash failed: %v", err)
+	}
+	secondFull, err := calculateHash(second, "md5")
+	if err != nil {
+		t.Fatalf("calculateHash failed: %v", err)
+	}
+
+	if firstFull == secondFull {
+		t.Error("Expected the full hashes to differ")
+	}
+}
+
+func TestFindDuplicatesLargeFiles(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "duptest_large")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Two identical files larger than the fingerprint limit
+	content := make([]byte, partialHashSize+1024)
+	for i := range content {
+		content[i] = byte(i % 256)
+	}
+
+	for _, name := range []string{"large1.bin", "large2.bin"} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), content, 0644); err != nil {
+			t.Fatalf("Failed to create %s: %v", name, err)
+		}
+	}
+
+	hashMap, _, err := findDuplicates(tmpDir, "md5", 0, 0, nil, nil, &output.NoOpProgressIndicator{})
+	if err != nil {
+		t.Fatalf("findDuplicates failed: %v", err)
+	}
+
+	duplicateGroups := 0
+	for _, files := range hashMap {
+		if len(files) > 1 {
+			duplicateGroups++
+		}
+	}
+
+	if duplicateGroups != 1 {
+		t.Errorf("Expected 1 duplicate group, got %d", duplicateGroups)
+	}
+}
+
+func TestFindDuplicatesSizeFilter(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "duptest_size")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Small duplicates and large duplicates
+	small := []byte("small duplicate")
+	large := make([]byte, 4096)
+
+	for _, name := range []string{"small1.bin", "small2.bin"} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), small, 0644); err != nil {
+			t.Fatalf("Failed to create %s: %v", name, err)
+		}
+	}
+	for _, name := range []string{"large1.bin", "large2.bin"} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), large, 0644); err != nil {
+			t.Fatalf("Failed to create %s: %v", name, err)
+		}
+	}
+
+	// Only files of at least 1KB are considered
+	hashMap, _, err := findDuplicates(tmpDir, "md5", 1024, 0, nil, nil, &output.NoOpProgressIndicator{})
+	if err != nil {
+		t.Fatalf("findDuplicates failed: %v", err)
+	}
+
+	duplicateGroups := 0
+	for _, files := range hashMap {
+		if len(files) > 1 {
+			duplicateGroups++
+			for _, file := range files {
+				if filepath.Base(file) == "small1.bin" {
+					t.Error("Expected the small files to be filtered out")
+				}
+			}
+		}
+	}
+
+	if duplicateGroups != 1 {
+		t.Errorf("Expected 1 duplicate group, got %d", duplicateGroups)
 	}
 }
 
@@ -120,7 +314,7 @@ func TestFindDuplicates(t *testing.T) {
 		t.Fatalf("Failed to create file3: %v", err)
 	}
 
-	hashMap, _, err := findDuplicates(tmpDir, "md5", nil, nil, &output.NoOpProgressIndicator{})
+	hashMap, _, err := findDuplicates(tmpDir, "md5", 0, 0, nil, nil, &output.NoOpProgressIndicator{})
 	if err != nil {
 		t.Fatalf("findDuplicates failed: %v", err)
 	}
