@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"amurru/filetools/internal/exclusions"
 	"amurru/filetools/internal/output"
 )
 
@@ -53,6 +54,41 @@ func TestCalculateHashUnsupportedAlgorithm(t *testing.T) {
 	_, err = calculateHash(tmpFile.Name(), "unsupported")
 	if err == nil {
 		t.Error("Expected error for unsupported algorithm")
+	}
+}
+
+func TestFindDuplicatesWithExclusions(t *testing.T) {
+	// Create a temporary directory
+	tmpDir, err := os.MkdirTemp("", "duptest_excl")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create duplicate files
+	content := "duplicate content"
+	for _, name := range []string{"file1.txt", "file2.txt"} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create %s: %v", name, err)
+		}
+	}
+
+	// Excluding one of them leaves no duplicates behind
+	fileMatchers := exclusions.ParseExclusions("file2.txt", true)
+
+	hashMap, exclusionsList, err := findDuplicates(tmpDir, "md5", fileMatchers, nil, &output.NoOpProgressIndicator{})
+	if err != nil {
+		t.Fatalf("findDuplicates failed: %v", err)
+	}
+
+	if len(exclusionsList) != 1 {
+		t.Errorf("Expected 1 exclusion, got %d", len(exclusionsList))
+	}
+
+	for _, files := range hashMap {
+		if len(files) > 1 {
+			t.Errorf("Expected no duplicate groups after exclusion, got %v", files)
+		}
 	}
 }
 

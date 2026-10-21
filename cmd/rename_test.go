@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"testing"
 
+	"amurru/filetools/internal/exclusions"
 	"amurru/filetools/internal/output"
 )
 
@@ -122,6 +123,52 @@ func TestPerformRenamesDryRun(t *testing.T) {
 	// File should still exist with old name
 	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
 		t.Error("file was renamed in dry run")
+	}
+}
+
+func TestPerformRenamesWithDirExclusion(t *testing.T) {
+	// Create temporary directory
+	tmpDir, err := os.MkdirTemp("", "rename_test_excl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Files inside an excluded directory must not be touched
+	subDir := filepath.Join(tmpDir, "skipme")
+	if err := os.Mkdir(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	files := []string{"test1.jpg", "skipme/test2.jpg"}
+	for _, f := range files {
+		path := filepath.Join(tmpDir, f)
+		if err := os.WriteFile(path, []byte("test"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dirMatchers := exclusions.ParseExclusions("skipme", false)
+
+	re, _ := regexp.Compile("test")
+	ops, excl, err := performRenames(tmpDir, "*.jpg", re, "renamed", false, true, false, nil, dirMatchers, &output.NoOpProgressIndicator{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(excl) != 1 {
+		t.Errorf("expected 1 exclusion, got %d", len(excl))
+	}
+	if len(ops) != 1 {
+		t.Fatalf("expected 1 operation, got %d", len(ops))
+	}
+	if ops[0].OldPath != "test1.jpg" {
+		t.Errorf("expected only the root file to be renamed, got %s", ops[0].OldPath)
+	}
+
+	// The excluded file must keep its name
+	if _, err := os.Stat(filepath.Join(subDir, "test2.jpg")); err != nil {
+		t.Errorf("excluded file was renamed: %v", err)
 	}
 }
 
