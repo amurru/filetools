@@ -277,16 +277,11 @@ func organizeFiles(rootDir string, opts organizeOptions, fileMatchers, dirMatche
 	for _, stats := range categoryStats {
 		categories = append(categories, *stats)
 	}
-	sortOrganizeCategories(categories)
-
-	return operations, categories, exclusionsList, nil
-}
-
-// sortOrganizeCategories sorts categories by name
-func sortOrganizeCategories(categories []output.OrganizeCategory) {
 	sort.Slice(categories, func(i, j int) bool {
 		return categories[i].Category < categories[j].Category
 	})
+
+	return operations, categories, exclusionsList, nil
 }
 
 // runOrganize executes the organize command

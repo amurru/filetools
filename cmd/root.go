@@ -70,10 +70,6 @@ func init() {
 
 	// Progress flag
 	rootCmd.PersistentFlags().BoolVar(&noProgress, "no-progress", false, "Disable progress bar indicators")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // getOutputFormat determines the output format based on flags
