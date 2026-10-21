@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // ProgressIndicator defines the interface for progress indicators
@@ -64,13 +65,22 @@ func (s *SimpleProgressIndicator) Update(current int64) {
 }
 
 func (s *SimpleProgressIndicator) Finish() {
-	if s.enabled && s.total > 0 {
-		percentage := float64(s.total) / float64(s.total) * 100
-		fmt.Fprintf(os.Stderr, "%s: %d/%d (%.1f%%)\n", s.description, s.total, s.total, percentage)
-	} else if s.enabled {
-		// Unknown total - show final count
-		fmt.Fprintf(os.Stderr, "%s: %d items processed\n", s.description, s.current)
+	if !s.enabled {
+		return
 	}
+
+	if s.total > 0 {
+		// Skip the final line if the last update already showed this state
+		if s.current == s.lastShown {
+			return
+		}
+		percentage := float64(s.current) / float64(s.total) * 100
+		fmt.Fprintf(os.Stderr, "%s: %d/%d (%.1f%%)\n", s.description, s.current, s.total, percentage)
+		return
+	}
+
+	// Unknown total - show final count
+	fmt.Fprintf(os.Stderr, "%s: %d items processed\n", s.description, s.current)
 }
 
 func (s *SimpleProgressIndicator) IsEnabled() bool {
@@ -140,10 +150,11 @@ func NewProgressIndicator(cmd *cobra.Command) ProgressIndicator {
 }
 
 // Helper function to check if file descriptor is a terminal
-func isTerminal(_ *os.File) bool {
-	// Simple check - in a real implementation we'd use unix.Isatty
-	// For now, assume it's a terminal unless we know otherwise
-	return true
+func isTerminal(f *os.File) bool {
+	if f == nil {
+		return false
+	}
+	return term.IsTerminal(int(f.Fd()))
 }
 
 // Helper function to get output format from command (similar to existing getOutputFormat)
