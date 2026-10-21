@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -52,7 +53,7 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 	// Start with estimated count for progress (will increment as we go)
 	progress.Start(-1, "Analyzing files")
 
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			// Skip files/directories we can't access
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
@@ -64,6 +65,8 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 			return nil
 		}
 
+		isDir := d.IsDir()
+
 		// Get relative path for directory tracking and exclusion checking
 		relPath, err := filepath.Rel(rootDir, path)
 		if err != nil {
@@ -71,15 +74,15 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 		}
 
 		// Check for exclusions
-		if exclusion := exclusions.CheckExclusions(relPath, info.IsDir(), fileMatchers, dirMatchers); exclusion != nil {
+		if exclusion := exclusions.CheckExclusions(relPath, isDir, fileMatchers, dirMatchers); exclusion != nil {
 			exclusionsList = append(exclusionsList, *exclusion)
-			if info.IsDir() {
+			if isDir {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		if info.IsDir() {
+		if isDir {
 			// Initialize directory stats
 			directories[relPath] = &output.DirectoryInfo{
 				Path:      relPath,
@@ -88,15 +91,22 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 			}
 		} else {
 			// File statistics
+			info, err := d.Info()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not stat %s: %v\n", path, err)
+				return nil
+			}
+			size := info.Size()
+
 			totalFiles++
-			totalSize += info.Size()
+			totalSize += size
 			progress.Increment()
 
 			// Track largest file
-			if largestFile == nil || info.Size() > largestFile.Size {
+			if largestFile == nil || size > largestFile.Size {
 				largestFile = &output.FileInfo{
-					Name: filepath.Base(path),
-					Size: info.Size(),
+					Name: d.Name(),
+					Size: size,
 					Path: relPath,
 				}
 			}
@@ -115,13 +125,13 @@ func analyzeDirectory(rootDir string, fileMatchers, dirMatchers []exclusions.Exc
 				}
 			}
 			fileTypes[ext].Count++
-			fileTypes[ext].TotalSize += info.Size()
+			fileTypes[ext].TotalSize += size
 
 			// Add to directory statistics
 			dir := filepath.Dir(relPath)
 			if dirStats, exists := directories[dir]; exists {
 				dirStats.FileCount++
-				dirStats.TotalSize += info.Size()
+				dirStats.TotalSize += size
 			}
 		}
 

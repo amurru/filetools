@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,9 +141,8 @@ func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclu
 
 	// Single walk: collect files grouped by size
 	sizeGroups := make(map[int64][]string)
-	totalCount := int64(0)
 
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -153,24 +153,30 @@ func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclu
 			return err
 		}
 
+		isDir := d.IsDir()
+
 		// Check for exclusions
-		if exclusion := exclusions.CheckExclusions(relPath, info.IsDir(), fileMatchers, dirMatchers); exclusion != nil {
+		if exclusion := exclusions.CheckExclusions(relPath, isDir, fileMatchers, dirMatchers); exclusion != nil {
 			exclusionsList = append(exclusionsList, *exclusion)
-			if info.IsDir() {
+			if isDir {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
 		// Skip directories
-		if info.IsDir() {
+		if isDir {
 			return nil
 		}
 
 		// Group files by size
+		info, err := d.Info()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not stat %s: %v\n", path, err)
+			return nil
+		}
 		size := info.Size()
 		sizeGroups[size] = append(sizeGroups[size], path)
-		totalCount++
 		return nil
 	})
 
@@ -178,7 +184,17 @@ func findDuplicates(rootDir, algorithm string, fileMatchers, dirMatchers []exclu
 		return nil, exclusionsList, err
 	}
 
-	progress.Start(totalCount, "Finding duplicate files")
+	// Only files sharing a size can be duplicates, so only those are hashed
+	var candidateCount int64
+	for _, files := range sizeGroups {
+		if len(files) <= 1 {
+			// No duplicates possible for this size
+			continue
+		}
+		candidateCount += int64(len(files))
+	}
+
+	progress.Start(candidateCount, "Finding duplicate files")
 
 	// Process each size group that has potential duplicates
 	for _, files := range sizeGroups {

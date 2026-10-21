@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -195,7 +196,7 @@ func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, repla
 	// Single-pass walk: process files dynamically
 	progress.Start(-1, "Processing files for rename")
 
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
 			return nil
@@ -206,6 +207,8 @@ func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, repla
 			return nil
 		}
 
+		isDir := d.IsDir()
+
 		// Get relative path for exclusion checking
 		relPath, err := filepath.Rel(rootDir, path)
 		if err != nil {
@@ -213,20 +216,21 @@ func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, repla
 		}
 
 		// Check for exclusions
-		if exclusion := exclusions.CheckExclusions(relPath, info.IsDir(), fileMatchers, dirMatchers); exclusion != nil {
+		if exclusion := exclusions.CheckExclusions(relPath, isDir, fileMatchers, dirMatchers); exclusion != nil {
 			exclusionsList = append(exclusionsList, *exclusion)
-			if info.IsDir() {
+			if isDir {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		if info.IsDir() {
+		if isDir {
 			return nil // Skip directories for renaming
 		}
 
 		// Check if file matches the pattern
-		matched, err := filepath.Match(matchPattern, filepath.Base(path))
+		oldName := d.Name()
+		matched, err := filepath.Match(matchPattern, oldName)
 		if err != nil {
 			return fmt.Errorf("invalid match pattern: %w", err)
 		}
@@ -235,7 +239,6 @@ func performRenames(rootDir, matchPattern string, sedRegex *regexp.Regexp, repla
 		}
 
 		// Apply sed replacement to the filename
-		oldName := filepath.Base(path)
 		var newName string
 		if global {
 			newName = sedRegex.ReplaceAllString(oldName, replacement)
