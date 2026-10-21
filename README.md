@@ -125,6 +125,30 @@ filetools dupfind -H sha1 /path/to/directory
 filetools dupfind -H md5 /path/to/directory
 ```
 
+#### Size Range
+
+Only consider files within a size range:
+
+```bash
+# Ignore files smaller than 1MB
+filetools dupfind --min-size 1MB /path/to/directory
+
+# Ignore files larger than 100MB
+filetools dupfind --max-size 100MB /path/to/directory
+
+# Combine both
+filetools dupfind --min-size 1M --max-size 500M /path/to/directory
+```
+
+Sizes accept plain byte counts or a unit suffix: `K`, `M`, `G`, `T` and their
+`KB`, `MB`, `GB`, `TB` variants.
+
+#### Performance
+
+Large files are fingerprinted on their first 64KB before they are read in
+full. Only files that share both a size and a fingerprint are hashed
+completely, which avoids reading large files that cannot be duplicates.
+
 #### Combined Usage
 
 Combine multiple options:
@@ -602,6 +626,8 @@ These flags work with all commands:
 ### dupfind Flags
 
 - `-H, --hash string`: Hash algorithm (md5, sha1, sha256) (default "md5")
+- `--min-size string`: Only consider files of at least this size (e.g. 1MB, 512K)
+- `--max-size string`: Only consider files of at most this size (e.g. 100MB)
 
 ### dirstat Flags
 
