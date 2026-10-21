@@ -223,3 +223,224 @@ func TestNewFormatter_Default(t *testing.T) {
 		t.Errorf("NewFormatter(invalid) = %s, expected %s", actual, expected)
 	}
 }
+
+func createTestOrganizeResult() *OrganizeResult {
+	return &OrganizeResult{
+		DryRun: true,
+		Operations: []OrganizeOperation{
+			{OldPath: "photo.jpg", NewPath: "images/photo.jpg", Category: "images", Size: 2048},
+			{OldPath: "notes.txt", NewPath: "documents/notes.txt", Category: "documents", Size: 512, Error: "target file already exists"},
+		},
+		Categories: []OrganizeCategory{
+			{Category: "documents", FileCount: 1, TotalSize: 512},
+			{Category: "images", FileCount: 1, TotalSize: 2048},
+		},
+	}
+}
+
+func TestTextFormatter_FormatOrganize(t *testing.T) {
+	result := createTestOrganizeResult()
+	formatter := &TextFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatOrganize(result, &buf); err != nil {
+		t.Fatalf("FormatOrganize failed: %v", err)
+	}
+
+	output := buf.String()
+
+	if !strings.Contains(output, "DRY RUN") {
+		t.Error("Expected dry run notice in output")
+	}
+	if !strings.Contains(output, "images/photo.jpg") {
+		t.Error("Expected target path in output")
+	}
+	if !strings.Contains(output, "ERROR: target file already exists") {
+		t.Error("Expected error message in output")
+	}
+}
+
+func TestJSONFormatter_FormatOrganize(t *testing.T) {
+	result := createTestOrganizeResult()
+	formatter := &JSONFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatOrganize(result, &buf); err != nil {
+		t.Fatalf("FormatOrganize failed: %v", err)
+	}
+
+	var parsed OrganizeResult
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("Failed to parse JSON output: %v", err)
+	}
+
+	if !parsed.DryRun {
+		t.Error("Expected DryRun to be true")
+	}
+	if len(parsed.Operations) != 2 {
+		t.Errorf("Expected 2 operations, got %d", len(parsed.Operations))
+	}
+	if len(parsed.Categories) != 2 {
+		t.Errorf("Expected 2 categories, got %d", len(parsed.Categories))
+	}
+	if parsed.Operations[0].Category != "images" {
+		t.Errorf("Expected category 'images', got '%s'", parsed.Operations[0].Category)
+	}
+}
+
+func TestXMLFormatter_FormatOrganize(t *testing.T) {
+	result := createTestOrganizeResult()
+	formatter := &XMLFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatOrganize(result, &buf); err != nil {
+		t.Fatalf("FormatOrganize failed: %v", err)
+	}
+
+	output := buf.String()
+
+	if !strings.Contains(output, `<?xml version="1.0" encoding="UTF-8"?>`) {
+		t.Error("Expected XML header in output")
+	}
+	if !strings.Contains(output, "<OrganizeResult>") {
+		t.Error("Expected OrganizeResult root element")
+	}
+
+	var parsed OrganizeResult
+	if err := xml.Unmarshal([]byte(output), &parsed); err != nil {
+		t.Fatalf("Failed to parse XML output: %v", err)
+	}
+	if len(parsed.Operations) != 2 {
+		t.Errorf("Expected 2 operations, got %d", len(parsed.Operations))
+	}
+}
+
+func TestHTMLFormatter_FormatOrganize(t *testing.T) {
+	result := createTestOrganizeResult()
+	formatter := &HTMLFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatOrganize(result, &buf); err != nil {
+		t.Fatalf("FormatOrganize failed: %v", err)
+	}
+
+	output := buf.String()
+
+	if !strings.Contains(output, "<!DOCTYPE html>") {
+		t.Error("Expected HTML doctype")
+	}
+	if !strings.Contains(output, "<title>File Organizer Report</title>") {
+		t.Error("Expected HTML title")
+	}
+	if !strings.Contains(output, "images/photo.jpg") {
+		t.Error("Expected target path in HTML output")
+	}
+}
+
+func createTestSizeResult() *SizeReportResult {
+	return &SizeReportResult{
+		TotalFiles: 42,
+		TotalSize:  1024 * 1024,
+		TotalDirs:  7,
+		LargestFiles: []FileInfo{
+			{Name: "big.bin", Size: 512 * 1024, Path: "sub/big.bin"},
+		},
+		Buckets: []SizeBucket{
+			{Label: "< 1 KB", FileCount: 40, TotalSize: 1024, Percentage: 0.1},
+			{Label: "> 100 MB", FileCount: 2, TotalSize: 1024 * 1024, Percentage: 99.9},
+		},
+	}
+}
+
+func TestTextFormatter_FormatSizeReport(t *testing.T) {
+	result := createTestSizeResult()
+	formatter := &TextFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatSizeReport(result, &buf); err != nil {
+		t.Fatalf("FormatSizeReport failed: %v", err)
+	}
+
+	output := buf.String()
+
+	if !strings.Contains(output, "Size Analysis") {
+		t.Error("Expected heading in output")
+	}
+	if !strings.Contains(output, "Total Files: 42") {
+		t.Error("Expected file count in output")
+	}
+	if !strings.Contains(output, "sub/big.bin") {
+		t.Error("Expected largest file in output")
+	}
+}
+
+func TestJSONFormatter_FormatSizeReport(t *testing.T) {
+	result := createTestSizeResult()
+	formatter := &JSONFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatSizeReport(result, &buf); err != nil {
+		t.Fatalf("FormatSizeReport failed: %v", err)
+	}
+
+	var parsed SizeReportResult
+	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+		t.Fatalf("Failed to parse JSON output: %v", err)
+	}
+
+	if parsed.TotalFiles != 42 {
+		t.Errorf("Expected 42 files, got %d", parsed.TotalFiles)
+	}
+	if len(parsed.Buckets) != 2 {
+		t.Errorf("Expected 2 buckets, got %d", len(parsed.Buckets))
+	}
+	if len(parsed.LargestFiles) != 1 {
+		t.Errorf("Expected 1 largest file, got %d", len(parsed.LargestFiles))
+	}
+}
+
+func TestXMLFormatter_FormatSizeReport(t *testing.T) {
+	result := createTestSizeResult()
+	formatter := &XMLFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatSizeReport(result, &buf); err != nil {
+		t.Fatalf("FormatSizeReport failed: %v", err)
+	}
+
+	output := buf.String()
+
+	if !strings.Contains(output, "<SizeReportResult>") {
+		t.Error("Expected SizeReportResult root element")
+	}
+
+	var parsed SizeReportResult
+	if err := xml.Unmarshal([]byte(output), &parsed); err != nil {
+		t.Fatalf("Failed to parse XML output: %v", err)
+	}
+	if parsed.TotalDirs != 7 {
+		t.Errorf("Expected 7 directories, got %d", parsed.TotalDirs)
+	}
+}
+
+func TestHTMLFormatter_FormatSizeReport(t *testing.T) {
+	result := createTestSizeResult()
+	formatter := &HTMLFormatter{}
+
+	var buf bytes.Buffer
+	if err := formatter.FormatSizeReport(result, &buf); err != nil {
+		t.Fatalf("FormatSizeReport failed: %v", err)
+	}
+
+	output := buf.String()
+
+	if !strings.Contains(output, "<!DOCTYPE html>") {
+		t.Error("Expected HTML doctype")
+	}
+	if !strings.Contains(output, "<title>Size Analysis Report</title>") {
+		t.Error("Expected HTML title")
+	}
+	if !strings.Contains(output, "sub/big.bin") {
+		t.Error("Expected largest file in HTML output")
+	}
+}

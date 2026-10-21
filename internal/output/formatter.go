@@ -90,11 +90,57 @@ type RenameResult struct {
 	Exclusions []Exclusion       `json:"exclusions" xml:"exclusions"`
 }
 
+// OrganizeOperation represents a single file move performed by organize
+type OrganizeOperation struct {
+	OldPath  string `json:"old_path" xml:"oldPath"`
+	NewPath  string `json:"new_path" xml:"newPath"`
+	Category string `json:"category" xml:"category"`
+	Size     int64  `json:"size" xml:"size"`
+	Error    string `json:"error,omitempty" xml:"error,omitempty"`
+}
+
+// OrganizeCategory summarizes the files assigned to one target category
+type OrganizeCategory struct {
+	Category  string `json:"category" xml:"category"`
+	FileCount int    `json:"file_count" xml:"fileCount"`
+	TotalSize int64  `json:"total_size" xml:"totalSize"`
+}
+
+// OrganizeResult represents the complete result of an organize run
+type OrganizeResult struct {
+	Metadata   *Metadata           `json:"metadata" xml:"metadata"`
+	Operations []OrganizeOperation `json:"operations" xml:"operations"`
+	Categories []OrganizeCategory  `json:"categories" xml:"categories"`
+	DryRun     bool                `json:"dry_run" xml:"dryRun"`
+	Exclusions []Exclusion         `json:"exclusions" xml:"exclusions"`
+}
+
+// SizeBucket represents a group of files falling into a size range
+type SizeBucket struct {
+	Label      string  `json:"label" xml:"label"`
+	FileCount  int     `json:"file_count" xml:"fileCount"`
+	TotalSize  int64   `json:"total_size" xml:"totalSize"`
+	Percentage float64 `json:"percentage" xml:"percentage"`
+}
+
+// SizeReportResult represents the complete result of a size analysis
+type SizeReportResult struct {
+	Metadata     *Metadata    `json:"metadata" xml:"metadata"`
+	TotalFiles   int          `json:"total_files" xml:"totalFiles"`
+	TotalSize    int64        `json:"total_size" xml:"totalSize"`
+	TotalDirs    int          `json:"total_dirs" xml:"totalDirs"`
+	LargestFiles []FileInfo   `json:"largest_files" xml:"largestFiles"`
+	Buckets      []SizeBucket `json:"buckets" xml:"buckets"`
+	Exclusions   []Exclusion  `json:"exclusions" xml:"exclusions"`
+}
+
 // OutputFormatter defines the interface for different output formats
 type OutputFormatter interface {
 	FormatDuplicates(result *DuplicateResult, writer io.Writer) error
 	FormatDirStat(result *DirStatResult, writer io.Writer) error
 	FormatRename(result *RenameResult, writer io.Writer) error
+	FormatOrganize(result *OrganizeResult, writer io.Writer) error
+	FormatSizeReport(result *SizeReportResult, writer io.Writer) error
 }
 
 // OutputFormat represents the supported output formats

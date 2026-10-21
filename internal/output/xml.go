@@ -67,3 +67,43 @@ func (f *XMLFormatter) FormatRename(result *RenameResult, writer io.Writer) erro
 	_, err := writer.Write([]byte("\n"))
 	return err
 }
+
+// FormatOrganize formats organize results as XML
+func (f *XMLFormatter) FormatOrganize(result *OrganizeResult, writer io.Writer) error {
+	encoder := xml.NewEncoder(writer)
+	encoder.Indent("", "  ")
+
+	// Write XML header
+	if _, err := writer.Write([]byte(xml.Header)); err != nil {
+		return err
+	}
+
+	// Encode the result
+	if err := encoder.Encode(result); err != nil {
+		return err
+	}
+
+	// Write a newline at the end
+	_, err := writer.Write([]byte("\n"))
+	return err
+}
+
+// FormatSizeReport formats a size analysis as XML
+func (f *XMLFormatter) FormatSizeReport(result *SizeReportResult, writer io.Writer) error {
+	encoder := xml.NewEncoder(writer)
+	encoder.Indent("", "  ")
+
+	// Write XML header
+	if _, err := writer.Write([]byte(xml.Header)); err != nil {
+		return err
+	}
+
+	// Encode the result
+	if err := encoder.Encode(result); err != nil {
+		return err
+	}
+
+	// Write a newline at the end
+	_, err := writer.Write([]byte("\n"))
+	return err
+}
