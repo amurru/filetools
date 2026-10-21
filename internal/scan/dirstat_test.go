@@ -1,15 +1,15 @@
-package cmd
+package scan
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"amurru/filetools/internal/exclusions"
-	"amurru/filetools/internal/output"
+	"amurru/filetools/internal/progress"
+	"amurru/filetools/internal/report"
 )
 
-func TestAnalyzeDirectory(t *testing.T) {
+func TestAnalyzeDirStat(t *testing.T) {
 	// Create a temporary directory structure
 	tmpDir, err := os.MkdirTemp("", "dirstattest")
 	if err != nil {
@@ -43,9 +43,9 @@ func TestAnalyzeDirectory(t *testing.T) {
 		}
 	}
 
-	result, err := analyzeDirectory(tmpDir, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeDirStat(DirStatOptions{Dir: tmpDir}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeDirectory failed: %v", err)
+		t.Fatalf("AnalyzeDirStat failed: %v", err)
 	}
 
 	// Check total file count
@@ -72,7 +72,7 @@ func TestAnalyzeDirectory(t *testing.T) {
 	}
 
 	// Find .txt file type stats
-	var txtType *output.FileType
+	var txtType *report.FileType
 	for i := range result.FileTypes {
 		if result.FileTypes[i].Extension == ".txt" {
 			txtType = &result.FileTypes[i]
@@ -92,16 +92,16 @@ func TestAnalyzeDirectory(t *testing.T) {
 	}
 }
 
-func TestAnalyzeDirectoryEmpty(t *testing.T) {
+func TestAnalyzeDirStatEmpty(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "dirstatempty")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	result, err := analyzeDirectory(tmpDir, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeDirStat(DirStatOptions{Dir: tmpDir}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeDirectory failed: %v", err)
+		t.Fatalf("AnalyzeDirStat failed: %v", err)
 	}
 
 	if result.TotalFiles != 0 {
@@ -117,7 +117,7 @@ func TestAnalyzeDirectoryEmpty(t *testing.T) {
 	}
 }
 
-func TestAnalyzeDirectoryWithExclusions(t *testing.T) {
+func TestAnalyzeDirStatWithExclusions(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "dirstatexclude")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -133,12 +133,9 @@ func TestAnalyzeDirectoryWithExclusions(t *testing.T) {
 		}
 	}
 
-	// Exclude .log files
-	fileMatchers := parseExclusionsForTest("*.log")
-
-	result, err := analyzeDirectory(tmpDir, fileMatchers, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeDirStat(DirStatOptions{Dir: tmpDir, ExcludeFile: "*.log"}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeDirectory failed: %v", err)
+		t.Fatalf("AnalyzeDirStat failed: %v", err)
 	}
 
 	// Should only have 2 files (excluded .log)
@@ -152,7 +149,7 @@ func TestAnalyzeDirectoryWithExclusions(t *testing.T) {
 	}
 }
 
-func TestAnalyzeDirectoryNestedStructure(t *testing.T) {
+func TestAnalyzeDirStatNestedStructure(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "dirstatnested")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -174,6 +171,7 @@ func TestAnalyzeDirectoryNestedStructure(t *testing.T) {
 		"level1/level2/level2.txt",
 		"level1/level2/level3/level3.txt",
 	}
+
 	for _, path := range paths {
 		fullPath := filepath.Join(tmpDir, path)
 		if err := os.WriteFile(fullPath, []byte("content"), 0644); err != nil {
@@ -181,9 +179,9 @@ func TestAnalyzeDirectoryNestedStructure(t *testing.T) {
 		}
 	}
 
-	result, err := analyzeDirectory(tmpDir, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeDirStat(DirStatOptions{Dir: tmpDir}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeDirectory failed: %v", err)
+		t.Fatalf("AnalyzeDirStat failed: %v", err)
 	}
 
 	// Check we captured all directories
@@ -197,7 +195,7 @@ func TestAnalyzeDirectoryNestedStructure(t *testing.T) {
 	}
 }
 
-func TestAnalyzeDirectoryNoExtension(t *testing.T) {
+func TestAnalyzeDirStatNoExtension(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "dirstatnoext")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -213,28 +211,46 @@ func TestAnalyzeDirectoryNoExtension(t *testing.T) {
 		}
 	}
 
-	result, err := analyzeDirectory(tmpDir, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeDirStat(DirStatOptions{Dir: tmpDir}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeDirectory failed: %v", err)
+		t.Fatalf("AnalyzeDirStat failed: %v", err)
 	}
 
 	// Check for "(no extension)" file type
-	var noExtType *output.FileType
+	var noExtCount int
+	found := false
 	for i := range result.FileTypes {
 		if result.FileTypes[i].Extension == "(no extension)" {
-			noExtType = &result.FileTypes[i]
+			noExtCount = result.FileTypes[i].Count
+			found = true
 			break
 		}
 	}
 
-	if noExtType == nil {
+	if !found {
 		t.Error("Expected '(no extension)' file type to be present")
-	} else if noExtType.Count != 2 {
-		t.Errorf("Expected 2 files with no extension, got %d", noExtType.Count)
+	} else if noExtCount != 2 {
+		t.Errorf("Expected 2 files with no extension, got %d", noExtCount)
 	}
 }
 
-// Helper function for testing exclusions
-func parseExclusionsForTest(pattern string) []exclusions.ExclusionMatcher {
-	return exclusions.ParseExclusions(pattern, true)
+func TestAnalyzeDirStatEmptyFilesHaveNoPercentage(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A zero byte file makes the total size zero, which must not produce a
+	// division by zero in the percentages.
+	if err := os.WriteFile(filepath.Join(tmpDir, "empty.txt"), nil, 0644); err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+
+	result, err := AnalyzeDirStat(DirStatOptions{Dir: tmpDir}, progress.Nop{})
+	if err != nil {
+		t.Fatalf("AnalyzeDirStat failed: %v", err)
+	}
+
+	for _, ft := range result.FileTypes {
+		if ft.Percentage != 0 {
+			t.Errorf("Expected a zero percentage for %s, got %f", ft.Extension, ft.Percentage)
+		}
+	}
 }

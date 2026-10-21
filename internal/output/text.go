@@ -1,6 +1,7 @@
 package output
 
 import (
+	"amurru/filetools/internal/report"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 type TextFormatter struct{}
 
 // FormatDuplicates formats duplicate results as plain text (preserves current behavior)
-func (f *TextFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writer) error {
+func (f *TextFormatter) FormatDuplicates(result *report.DuplicateResult, writer io.Writer) error {
 	// Add branding header
 	if result.Metadata != nil {
 		flags := []string{}
@@ -71,7 +72,7 @@ func (f *TextFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writ
 }
 
 // FormatDirStat formats directory statistics as plain text
-func (f *TextFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) error {
+func (f *TextFormatter) FormatDirStat(result *report.DirStatResult, writer io.Writer) error {
 	// Add branding header
 	if result.Metadata != nil {
 		flags := []string{}
@@ -141,7 +142,7 @@ func (f *TextFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) e
 }
 
 // FormatRename formats rename results as plain text
-func (f *TextFormatter) FormatRename(result *RenameResult, writer io.Writer) error {
+func (f *TextFormatter) FormatRename(result *report.RenameResult, writer io.Writer) error {
 	// Add branding header
 	if result.Metadata != nil {
 		flags := []string{}
@@ -188,7 +189,7 @@ func (f *TextFormatter) FormatRename(result *RenameResult, writer io.Writer) err
 }
 
 // FormatOrganize formats organize results as plain text
-func (f *TextFormatter) FormatOrganize(result *OrganizeResult, writer io.Writer) error {
+func (f *TextFormatter) FormatOrganize(result *report.OrganizeResult, writer io.Writer) error {
 	// Add branding header
 	if result.Metadata != nil {
 		flags := []string{}
@@ -247,7 +248,7 @@ func (f *TextFormatter) FormatOrganize(result *OrganizeResult, writer io.Writer)
 }
 
 // FormatSizeReport formats a size analysis as plain text
-func (f *TextFormatter) FormatSizeReport(result *SizeReportResult, writer io.Writer) error {
+func (f *TextFormatter) FormatSizeReport(result *report.SizeReportResult, writer io.Writer) error {
 	// Add branding header
 	if result.Metadata != nil {
 		flags := []string{}

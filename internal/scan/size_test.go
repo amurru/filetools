@@ -1,12 +1,11 @@
-package cmd
+package scan
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"amurru/filetools/internal/exclusions"
-	"amurru/filetools/internal/output"
+	"amurru/filetools/internal/progress"
 )
 
 func TestSizeBucketLabel(t *testing.T) {
@@ -25,9 +24,9 @@ func TestSizeBucketLabel(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		label := sizeBucketLabel(test.size)
+		label := SizeBucketLabel(test.size)
 		if label != test.expected {
-			t.Errorf("sizeBucketLabel(%d) = %s, expected %s", test.size, label, test.expected)
+			t.Errorf("SizeBucketLabel(%d) = %s, expected %s", test.size, label, test.expected)
 		}
 	}
 }
@@ -53,9 +52,9 @@ func TestAnalyzeSizes(t *testing.T) {
 		}
 	}
 
-	result, err := analyzeSizes(tmpDir, 10, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeSizes(SizeOptions{Dir: tmpDir, Top: 10}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeSizes failed: %v", err)
+		t.Fatalf("AnalyzeSizes failed: %v", err)
 	}
 
 	if result.TotalFiles != 4 {
@@ -110,9 +109,9 @@ func TestAnalyzeSizesTopLimit(t *testing.T) {
 		}
 	}
 
-	result, err := analyzeSizes(tmpDir, 2, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeSizes(SizeOptions{Dir: tmpDir, Top: 2}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeSizes failed: %v", err)
+		t.Fatalf("AnalyzeSizes failed: %v", err)
 	}
 
 	if len(result.LargestFiles) != 2 {
@@ -126,9 +125,9 @@ func TestAnalyzeSizesTopLimit(t *testing.T) {
 func TestAnalyzeSizesEmpty(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	result, err := analyzeSizes(tmpDir, 10, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeSizes(SizeOptions{Dir: tmpDir, Top: 10}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeSizes failed: %v", err)
+		t.Fatalf("AnalyzeSizes failed: %v", err)
 	}
 
 	if result.TotalFiles != 0 {
@@ -151,11 +150,9 @@ func TestAnalyzeSizesWithExclusions(t *testing.T) {
 		}
 	}
 
-	fileMatchers := exclusions.ParseExclusions("*.log", true)
-
-	result, err := analyzeSizes(tmpDir, 10, fileMatchers, nil, &output.NoOpProgressIndicator{})
+	result, err := AnalyzeSizes(SizeOptions{Dir: tmpDir, Top: 10, ExcludeFile: "*.log"}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("analyzeSizes failed: %v", err)
+		t.Fatalf("AnalyzeSizes failed: %v", err)
 	}
 
 	if result.TotalFiles != 1 {
@@ -163,5 +160,12 @@ func TestAnalyzeSizesWithExclusions(t *testing.T) {
 	}
 	if len(result.Exclusions) != 1 {
 		t.Errorf("Expected 1 exclusion, got %d", len(result.Exclusions))
+	}
+}
+
+func TestAnalyzeSizesMissingDirectory(t *testing.T) {
+	_, err := AnalyzeSizes(SizeOptions{Dir: filepath.Join(t.TempDir(), "missing"), Top: 10}, progress.Nop{})
+	if err == nil {
+		t.Error("Expected an error for a missing directory")
 	}
 }

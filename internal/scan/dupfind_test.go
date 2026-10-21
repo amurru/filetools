@@ -1,12 +1,11 @@
-package cmd
+package scan
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"amurru/filetools/internal/exclusions"
-	"amurru/filetools/internal/output"
+	"amurru/filetools/internal/progress"
 )
 
 func TestCalculateHash(t *testing.T) {
@@ -73,22 +72,21 @@ func TestFindDuplicatesWithExclusions(t *testing.T) {
 		}
 	}
 
-	// Excluding one of them leaves no duplicates behind
-	fileMatchers := exclusions.ParseExclusions("file2.txt", true)
-
-	hashMap, exclusionsList, err := findDuplicates(tmpDir, "md5", 0, 0, fileMatchers, nil, &output.NoOpProgressIndicator{})
+	result, err := FindDuplicates(DuplicateOptions{
+		Dir:         tmpDir,
+		Algorithm:   "md5",
+		ExcludeFile: "file2.txt",
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("findDuplicates failed: %v", err)
+		t.Fatalf("FindDuplicates failed: %v", err)
 	}
 
-	if len(exclusionsList) != 1 {
-		t.Errorf("Expected 1 exclusion, got %d", len(exclusionsList))
+	if len(result.Exclusions) != 1 {
+		t.Errorf("Expected 1 exclusion, got %d", len(result.Exclusions))
 	}
 
-	for _, files := range hashMap {
-		if len(files) > 1 {
-			t.Errorf("Expected no duplicate groups after exclusion, got %v", files)
-		}
+	if result.Found {
+		t.Errorf("Expected no duplicate groups after exclusion, got %v", result.Groups)
 	}
 }
 
@@ -113,12 +111,12 @@ func TestParseSize(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
-			size, err := parseSize(test.input)
+			size, err := ParseSize(test.input)
 			if (err != nil) != test.wantErr {
-				t.Fatalf("parseSize(%q) error = %v, wantErr %v", test.input, err, test.wantErr)
+				t.Fatalf("ParseSize(%q) error = %v, wantErr %v", test.input, err, test.wantErr)
 			}
 			if err == nil && size != test.expected {
-				t.Errorf("parseSize(%q) = %d, want %d", test.input, size, test.expected)
+				t.Errorf("ParseSize(%q) = %d, want %d", test.input, size, test.expected)
 			}
 		})
 	}
@@ -224,20 +222,16 @@ func TestFindDuplicatesLargeFiles(t *testing.T) {
 		}
 	}
 
-	hashMap, _, err := findDuplicates(tmpDir, "md5", 0, 0, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := FindDuplicates(DuplicateOptions{Dir: tmpDir, Algorithm: "md5"}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("findDuplicates failed: %v", err)
+		t.Fatalf("FindDuplicates failed: %v", err)
 	}
 
-	duplicateGroups := 0
-	for _, files := range hashMap {
-		if len(files) > 1 {
-			duplicateGroups++
-		}
+	if len(result.Groups) != 1 {
+		t.Errorf("Expected 1 duplicate group, got %d", len(result.Groups))
 	}
-
-	if duplicateGroups != 1 {
-		t.Errorf("Expected 1 duplicate group, got %d", duplicateGroups)
+	if !result.Found {
+		t.Error("Expected the result to report that duplicates were found")
 	}
 }
 
@@ -264,25 +258,22 @@ func TestFindDuplicatesSizeFilter(t *testing.T) {
 	}
 
 	// Only files of at least 1KB are considered
-	hashMap, _, err := findDuplicates(tmpDir, "md5", 1024, 0, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := FindDuplicates(DuplicateOptions{
+		Dir:       tmpDir,
+		Algorithm: "md5",
+		MinSize:   1024,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("findDuplicates failed: %v", err)
+		t.Fatalf("FindDuplicates failed: %v", err)
 	}
 
-	duplicateGroups := 0
-	for _, files := range hashMap {
-		if len(files) > 1 {
-			duplicateGroups++
-			for _, file := range files {
-				if filepath.Base(file) == "small1.bin" {
-					t.Error("Expected the small files to be filtered out")
-				}
-			}
+	if len(result.Groups) != 1 {
+		t.Fatalf("Expected 1 duplicate group, got %d", len(result.Groups))
+	}
+	for _, file := range result.Groups[0].Files {
+		if filepath.Base(file) == "small1.bin" {
+			t.Error("Expected the small files to be filtered out")
 		}
-	}
-
-	if duplicateGroups != 1 {
-		t.Errorf("Expected 1 duplicate group, got %d", duplicateGroups)
 	}
 }
 
@@ -314,23 +305,29 @@ func TestFindDuplicates(t *testing.T) {
 		t.Fatalf("Failed to create file3: %v", err)
 	}
 
-	hashMap, _, err := findDuplicates(tmpDir, "md5", 0, 0, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := FindDuplicates(DuplicateOptions{Dir: tmpDir, Algorithm: "md5"}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("findDuplicates failed: %v", err)
+		t.Fatalf("FindDuplicates failed: %v", err)
 	}
 
-	// Check that we have one duplicate group
-	duplicateGroups := 0
-	for _, files := range hashMap {
-		if len(files) > 1 {
-			duplicateGroups++
-			if len(files) != 2 {
-				t.Errorf("Expected 2 duplicate files, got %d", len(files))
-			}
-		}
+	if len(result.Groups) != 1 {
+		t.Fatalf("Expected 1 duplicate group, got %d", len(result.Groups))
 	}
+	if len(result.Groups[0].Files) != 2 {
+		t.Errorf("Expected 2 duplicate files, got %d", len(result.Groups[0].Files))
+	}
+}
 
-	if duplicateGroups != 1 {
-		t.Errorf("Expected 1 duplicate group, got %d", duplicateGroups)
+func TestFindDuplicatesUnsupportedAlgorithm(t *testing.T) {
+	_, err := FindDuplicates(DuplicateOptions{Dir: ".", Algorithm: "crc32"}, progress.Nop{})
+	if err == nil {
+		t.Error("Expected an error for an unsupported hash algorithm")
+	}
+}
+
+func TestFindDuplicatesMissingDirectory(t *testing.T) {
+	_, err := FindDuplicates(DuplicateOptions{Dir: filepath.Join(t.TempDir(), "missing"), Algorithm: "md5"}, progress.Nop{})
+	if err == nil {
+		t.Error("Expected an error for a missing directory")
 	}
 }

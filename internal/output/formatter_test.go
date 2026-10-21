@@ -1,6 +1,7 @@
 package output
 
 import (
+	"amurru/filetools/internal/report"
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
@@ -9,10 +10,10 @@ import (
 	"testing"
 )
 
-func createTestResult() *DuplicateResult {
-	return &DuplicateResult{
+func createTestResult() *report.DuplicateResult {
+	return &report.DuplicateResult{
 		Found: true,
-		Groups: []DuplicateGroup{
+		Groups: []report.DuplicateGroup{
 			{
 				Hash:  "abc123def456",
 				Size:  1024,
@@ -27,10 +28,10 @@ func createTestResult() *DuplicateResult {
 	}
 }
 
-func createEmptyResult() *DuplicateResult {
-	return &DuplicateResult{
+func createEmptyResult() *report.DuplicateResult {
+	return &report.DuplicateResult{
 		Found:  false,
-		Groups: []DuplicateGroup{},
+		Groups: []report.DuplicateGroup{},
 	}
 }
 
@@ -92,7 +93,7 @@ func TestJSONFormatter_FormatDuplicates(t *testing.T) {
 	output := buf.String()
 
 	// Parse the JSON to verify structure
-	var parsed DuplicateResult
+	var parsed report.DuplicateResult
 	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
 		t.Fatalf("Failed to parse JSON output: %v", err)
 	}
@@ -137,7 +138,7 @@ func TestXMLFormatter_FormatDuplicates(t *testing.T) {
 	}
 
 	// Parse the XML to verify structure
-	var parsed DuplicateResult
+	var parsed report.DuplicateResult
 	if err := xml.Unmarshal([]byte(output), &parsed); err != nil {
 		t.Fatalf("Failed to parse XML output: %v", err)
 	}
@@ -224,14 +225,14 @@ func TestNewFormatter_Default(t *testing.T) {
 	}
 }
 
-func createTestOrganizeResult() *OrganizeResult {
-	return &OrganizeResult{
+func createTestOrganizeResult() *report.OrganizeResult {
+	return &report.OrganizeResult{
 		DryRun: true,
-		Operations: []OrganizeOperation{
+		Operations: []report.OrganizeOperation{
 			{OldPath: "photo.jpg", NewPath: "images/photo.jpg", Category: "images", Size: 2048},
 			{OldPath: "notes.txt", NewPath: "documents/notes.txt", Category: "documents", Size: 512, Error: "target file already exists"},
 		},
-		Categories: []OrganizeCategory{
+		Categories: []report.OrganizeCategory{
 			{Category: "documents", FileCount: 1, TotalSize: 512},
 			{Category: "images", FileCount: 1, TotalSize: 2048},
 		},
@@ -269,7 +270,7 @@ func TestJSONFormatter_FormatOrganize(t *testing.T) {
 		t.Fatalf("FormatOrganize failed: %v", err)
 	}
 
-	var parsed OrganizeResult
+	var parsed report.OrganizeResult
 	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
 		t.Fatalf("Failed to parse JSON output: %v", err)
 	}
@@ -306,7 +307,7 @@ func TestXMLFormatter_FormatOrganize(t *testing.T) {
 		t.Error("Expected OrganizeResult root element")
 	}
 
-	var parsed OrganizeResult
+	var parsed report.OrganizeResult
 	if err := xml.Unmarshal([]byte(output), &parsed); err != nil {
 		t.Fatalf("Failed to parse XML output: %v", err)
 	}
@@ -337,15 +338,15 @@ func TestHTMLFormatter_FormatOrganize(t *testing.T) {
 	}
 }
 
-func createTestSizeResult() *SizeReportResult {
-	return &SizeReportResult{
+func createTestSizeResult() *report.SizeReportResult {
+	return &report.SizeReportResult{
 		TotalFiles: 42,
 		TotalSize:  1024 * 1024,
 		TotalDirs:  7,
-		LargestFiles: []FileInfo{
+		LargestFiles: []report.FileInfo{
 			{Name: "big.bin", Size: 512 * 1024, Path: "sub/big.bin"},
 		},
-		Buckets: []SizeBucket{
+		Buckets: []report.SizeBucket{
 			{Label: "< 1 KB", FileCount: 40, TotalSize: 1024, Percentage: 0.1},
 			{Label: "> 100 MB", FileCount: 2, TotalSize: 1024 * 1024, Percentage: 99.9},
 		},
@@ -383,7 +384,7 @@ func TestJSONFormatter_FormatSizeReport(t *testing.T) {
 		t.Fatalf("FormatSizeReport failed: %v", err)
 	}
 
-	var parsed SizeReportResult
+	var parsed report.SizeReportResult
 	if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
 		t.Fatalf("Failed to parse JSON output: %v", err)
 	}
@@ -414,7 +415,7 @@ func TestXMLFormatter_FormatSizeReport(t *testing.T) {
 		t.Error("Expected SizeReportResult root element")
 	}
 
-	var parsed SizeReportResult
+	var parsed report.SizeReportResult
 	if err := xml.Unmarshal([]byte(output), &parsed); err != nil {
 		t.Fatalf("Failed to parse XML output: %v", err)
 	}
