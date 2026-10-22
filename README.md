@@ -844,7 +844,7 @@ To add a new tool:
 3. Add the formatter to `internal/output/` and to the `OutputFormatter`
    interface
 4. Register the Cobra command in `cmd/`
-5. Add the interface page in `internal/gui/pages/`
+5. Add the interface page in `internal/gui/page_<name>.go`
 6. Add tests in `internal/scan/`
 
 ### Adding New Output Formats
