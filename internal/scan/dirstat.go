@@ -44,6 +44,10 @@ func AnalyzeDirStat(opts DirStatOptions, p progress.Indicator) (*report.DirStatR
 	p.Start(-1, "Analyzing files")
 
 	err := filepath.WalkDir(opts.Dir, func(path string, d fs.DirEntry, err error) error {
+		progress.WaitIfPaused(p)
+		if progress.IsCancelled(p) {
+			return progress.ErrCancelled
+		}
 		if err != nil {
 			// Skip files/directories we can't access
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)

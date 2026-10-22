@@ -167,7 +167,7 @@ func calculatePartialHash(filePath, algorithm string) (string, error) {
 type hashFunc func(filePath, algorithm string) (string, error)
 
 // hashFilesConcurrently hashes multiple files concurrently using a worker pool
-func hashFilesConcurrently(files []string, algorithm string, progress progress.Indicator, hash hashFunc) []hashResult {
+func hashFilesConcurrently(files []string, algorithm string, p progress.Indicator, hash hashFunc) []hashResult {
 	if len(files) == 0 {
 		return nil
 	}
@@ -187,6 +187,10 @@ func hashFilesConcurrently(files []string, algorithm string, progress progress.I
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
+				progress.WaitIfPaused(p)
+				if progress.IsCancelled(p) {
+					continue
+				}
 				sum, err := hash(job.path, algorithm)
 				results <- hashResult{job.path, sum, err}
 			}
@@ -195,6 +199,10 @@ func hashFilesConcurrently(files []string, algorithm string, progress progress.I
 
 	// Send jobs
 	for _, file := range files {
+		progress.WaitIfPaused(p)
+		if progress.IsCancelled(p) {
+			break
+		}
 		jobs <- hashJob{path: file}
 	}
 	close(jobs)
@@ -205,11 +213,16 @@ func hashFilesConcurrently(files []string, algorithm string, progress progress.I
 		close(results)
 	}()
 
-	// Collect results
+	// Collect results. The channels are buffered for all files, so
+	// returning early on cancellation never blocks the workers.
 	var output []hashResult
 	for result := range results {
+		progress.WaitIfPaused(p)
 		output = append(output, result)
-		progress.Increment()
+		p.Increment()
+		if progress.IsCancelled(p) {
+			break
+		}
 	}
 
 	return output
@@ -250,6 +263,10 @@ func findDuplicates(opts DuplicateOptions, p progress.Indicator) (map[string][]s
 	sizeGroups := make(map[int64][]string)
 
 	err := filepath.WalkDir(opts.Dir, func(path string, d fs.DirEntry, err error) error {
+		progress.WaitIfPaused(p)
+		if progress.IsCancelled(p) {
+			return progress.ErrCancelled
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
 			return nil
@@ -328,6 +345,9 @@ func findDuplicates(opts DuplicateOptions, p progress.Indicator) (map[string][]s
 	}
 
 	partialResults := hashFilesConcurrently(candidatePaths, opts.Algorithm, p, calculatePartialHash)
+	if progress.IsCancelled(p) {
+		return nil, exclusionsList, progress.ErrCancelled
+	}
 
 	// Group the candidates by size and partial hash
 	partialGroups := make(map[sizeKey][]string)
@@ -362,9 +382,16 @@ func findDuplicates(opts DuplicateOptions, p progress.Indicator) (map[string][]s
 	}
 
 	if len(toVerify) > 0 {
+		progress.WaitIfPaused(p)
+		if progress.IsCancelled(p) {
+			return nil, exclusionsList, progress.ErrCancelled
+		}
 		p.Start(int64(len(toVerify)), "Verifying candidates")
 
 		fullResults := hashFilesConcurrently(toVerify, opts.Algorithm, p, calculateHash)
+		if progress.IsCancelled(p) {
+			return nil, exclusionsList, progress.ErrCancelled
+		}
 		for _, result := range fullResults {
 			if result.error != nil {
 				fmt.Fprintf(os.Stderr, "Warning: could not hash file %s: %v\n", result.path, result.error)

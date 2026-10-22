@@ -131,3 +131,150 @@ func TestJobRunsTheAnalysisEngine(t *testing.T) {
 		t.Errorf("Expected an empty directory, got %d files", result.TotalFiles)
 	}
 }
+
+func TestJobPauseAndResume(t *testing.T) {
+	job := newJob(nil)
+
+	job.Run(func(p progress.Indicator) (any, error) {
+		time.Sleep(200 * time.Millisecond)
+		return "done", nil
+	})
+
+	if !waitFor(t, job, func() bool { return job.isRunning() }) {
+		t.Fatal("Expected the job to be running")
+	}
+
+	job.Pause()
+	if !job.isPaused() {
+		t.Fatal("Expected the job to be paused")
+	}
+
+	job.Resume()
+	if job.isPaused() {
+		t.Fatal("Expected the job to be resumed")
+	}
+
+	if !waitFor(t, job, func() bool { return job.output() != nil }) {
+		t.Fatal("Expected the job to finish after resume")
+	}
+}
+
+func TestJobTogglePause(t *testing.T) {
+	job := newJob(nil)
+
+	job.Run(func(p progress.Indicator) (any, error) {
+		time.Sleep(200 * time.Millisecond)
+		return "done", nil
+	})
+
+	if !waitFor(t, job, func() bool { return job.isRunning() }) {
+		t.Fatal("Expected the job to be running")
+	}
+
+	job.TogglePause()
+	if !job.isPaused() {
+		t.Fatal("Expected TogglePause to pause the job")
+	}
+
+	job.TogglePause()
+	if job.isPaused() {
+		t.Fatal("Expected TogglePause to resume the job")
+	}
+}
+
+func TestJobWaitIfPausedBlocksUntilResume(t *testing.T) {
+	job := newJob(nil)
+
+	job.Run(func(p progress.Indicator) (any, error) {
+		time.Sleep(300 * time.Millisecond)
+		return "done", nil
+	})
+
+	if !waitFor(t, job, func() bool { return job.isRunning() }) {
+		t.Fatal("Expected the job to be running")
+	}
+
+	job.Pause()
+
+	released := make(chan struct{})
+	go func() {
+		job.WaitIfPaused()
+		close(released)
+	}()
+
+	select {
+	case <-released:
+		t.Fatal("WaitIfPaused returned while paused")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	job.Resume()
+
+	select {
+	case <-released:
+	case <-time.After(5 * time.Second):
+		t.Fatal("WaitIfPaused did not return after resume")
+	}
+}
+
+func TestJobCancelStopsRun(t *testing.T) {
+	job := newJob(nil)
+
+	job.Run(func(p progress.Indicator) (any, error) {
+		for {
+			progress.WaitIfPaused(p)
+			if progress.IsCancelled(p) {
+				return nil, progress.ErrCancelled
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	})
+
+	if !waitFor(t, job, func() bool { return job.isRunning() }) {
+		t.Fatal("Expected the job to be running")
+	}
+
+	job.Cancel()
+
+	if !waitFor(t, job, func() bool {
+		_, _, _, running, done, _ := job.state()
+		return !running && done
+	}) {
+		t.Fatal("Expected the job to finish after cancel")
+	}
+
+	_, _, _, _, _, err := job.state()
+	if !errors.Is(err, progress.ErrCancelled) {
+		t.Errorf("Expected ErrCancelled, got %v", err)
+	}
+}
+
+func TestJobCancelWakesPausedWaiter(t *testing.T) {
+	job := newJob(nil)
+
+	job.Run(func(p progress.Indicator) (any, error) {
+		time.Sleep(300 * time.Millisecond)
+		return "done", nil
+	})
+
+	if !waitFor(t, job, func() bool { return job.isRunning() }) {
+		t.Fatal("Expected the job to be running")
+	}
+
+	job.Pause()
+
+	released := make(chan struct{})
+	go func() {
+		job.WaitIfPaused()
+		close(released)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	job.Cancel()
+
+	select {
+	case <-released:
+	case <-time.After(5 * time.Second):
+		t.Fatal("WaitIfPaused did not return after cancel")
+	}
+}

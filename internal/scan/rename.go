@@ -102,6 +102,10 @@ func performRenames(opts RenameOptions, sedRegex *regexp.Regexp, replacement str
 	p.Start(-1, "Processing files for rename")
 
 	err := filepath.WalkDir(opts.Dir, func(path string, d fs.DirEntry, err error) error {
+		progress.WaitIfPaused(p)
+		if progress.IsCancelled(p) {
+			return progress.ErrCancelled
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
 			return nil

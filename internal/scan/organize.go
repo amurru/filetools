@@ -162,6 +162,10 @@ func organizeFiles(opts OrganizeOptions, destDir string, m matchers, p progress.
 	p.Start(-1, "Organizing files")
 
 	err := filepath.WalkDir(opts.Source, func(path string, d fs.DirEntry, err error) error {
+		progress.WaitIfPaused(p)
+		if progress.IsCancelled(p) {
+			return progress.ErrCancelled
+		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
 			return nil

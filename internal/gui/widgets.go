@@ -3,6 +3,7 @@
 package gui
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -20,6 +21,8 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+
+	"amurru/filetools/internal/progress"
 )
 
 // labelWidth is the width of the labels of the form rows.
@@ -827,7 +830,9 @@ func emptyHint(gtx layout.Context, th *theme, text string) layout.Dimensions {
 // layoutProgress draws the progress of a running job.
 //
 // The layout returns nothing when no job ran yet, so the pages can simply
-// place it in their vertical stack.
+// place it in their vertical stack. While a job is running, pause and stop
+// buttons let the user freeze the engine or abort it. The buttons live on
+// the job, so their click state survives across frames.
 func layoutProgress(gtx layout.Context, th *theme, job *Job) layout.Dimensions {
 	desc, current, total, running, done, err := job.state()
 	if !running && !done {
@@ -835,6 +840,13 @@ func layoutProgress(gtx layout.Context, th *theme, job *Job) layout.Dimensions {
 	}
 
 	if err != nil {
+		if errors.Is(err, progress.ErrCancelled) {
+			label := material.Body2(th.Theme, "Stopped.")
+			label.Color = th.palette.Muted
+			return layout.Inset{Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return label.Layout(gtx)
+			})
+		}
 		label := material.Body2(th.Theme, "Error: "+err.Error())
 		label.Color = dangerColor(th)
 		return layout.Inset{Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -844,6 +856,7 @@ func layoutProgress(gtx layout.Context, th *theme, job *Job) layout.Dimensions {
 
 	progress := float32(0)
 	text := desc
+	paused := false
 	switch {
 	case running && total > 0:
 		progress = float32(current) / float32(total)
@@ -853,19 +866,80 @@ func layoutProgress(gtx layout.Context, th *theme, job *Job) layout.Dimensions {
 	case done:
 		text = fmt.Sprintf("%s  done", desc)
 	}
+	if running && job.isPaused() {
+		paused = true
+		text += "  paused"
+	}
+
+	if !running {
+		return layout.Inset{Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					bar := material.ProgressBar(th.Theme, progress)
+					return bar.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.Inset{Left: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						label := material.Caption(th.Theme, text)
+						label.MaxLines = 1
+						return label.Layout(gtx)
+					})
+				}),
+			)
+		})
+	}
+
+	// The clicks are read before the buttons are laid out, because laying
+	// out a clickable consumes the pending click event.
+	if job.stopBtn.Clicked(gtx) {
+		job.Cancel()
+	}
+	if job.pauseBtn.Clicked(gtx) {
+		job.TogglePause()
+	}
+	pauseLabel := "Pause"
+	if paused {
+		pauseLabel = "Resume"
+	}
 
 	return layout.Inset{Bottom: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				bar := material.ProgressBar(th.Theme, progress)
-				return bar.Layout(gtx)
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						bar := material.ProgressBar(th.Theme, progress)
+						return bar.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							label := material.Caption(th.Theme, text)
+							label.MaxLines = 1
+							return label.Layout(gtx)
+						})
+					}),
+				)
 			}),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Inset{Left: unit.Dp(12)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					label := material.Caption(th.Theme, text)
-					label.MaxLines = 1
-					return label.Layout(gtx)
-				})
+				return layout.Spacer{Height: unit.Dp(8)}.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						button := material.Button(th.Theme, &job.pauseBtn, pauseLabel)
+						button.TextSize = th.TextSize
+						return button.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{Left: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							button := material.Button(th.Theme, &job.stopBtn, "Stop")
+							button.TextSize = th.TextSize
+							return button.Layout(gtx)
+						})
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return layout.Dimensions{Size: gtx.Constraints.Min}
+					}),
+				)
 			}),
 		)
 	})

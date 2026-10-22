@@ -8,9 +8,41 @@
 package progress
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
+
+// ErrCancelled is returned by the analysis engines when the operation was
+// stopped through the indicator.
+var ErrCancelled = errors.New("operation cancelled")
+
+// Cancellable is an optional extension of Indicator implemented by the
+// graphical job runner. The analysis engines check it cooperatively, so
+// that long running operations can be paused and stopped. The command line
+// reporter does not implement it, where the helpers below are no-ops.
+type Cancellable interface {
+	// Cancelled reports whether the operation was stopped.
+	Cancelled() bool
+	// WaitIfPaused blocks while the operation is paused.
+	WaitIfPaused()
+}
+
+// IsCancelled reports whether p was stopped.
+func IsCancelled(p Indicator) bool {
+	if c, ok := p.(Cancellable); ok {
+		return c.Cancelled()
+	}
+	return false
+}
+
+// WaitIfPaused blocks while p is paused. It returns immediately for
+// indicators that do not support pausing.
+func WaitIfPaused(p Indicator) {
+	if c, ok := p.(Cancellable); ok {
+		c.WaitIfPaused()
+	}
+}
 
 // Indicator reports the progress of a long running operation.
 //

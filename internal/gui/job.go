@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/widget"
 
 	"amurru/filetools/internal/progress"
 )
@@ -42,13 +43,30 @@ type Job struct {
 	// kept out of the mutex to keep the hot path cheap.
 	current atomic.Int64
 
+	// cancelled is set by Cancel and read by the engine through the
+	// Cancellable interface.
+	cancelled atomic.Bool
+
+	// pauseMu guards paused. pauseCond wakes engines blocked in
+	// WaitIfPaused.
+	pauseMu   sync.Mutex
+	pauseCond *sync.Cond
+	paused    bool
+
+	// pauseBtn and stopBtn are kept across frames, so that clicks on them
+	// survive. They are read by the progress layout.
+	pauseBtn widget.Clickable
+	stopBtn  widget.Clickable
+
 	// lastPaint is the time of the last repaint request.
 	lastPaint time.Time
 }
 
 // newJob returns a job that reports to the given window.
 func newJob(win *app.Window) *Job {
-	return &Job{win: win}
+	j := &Job{win: win}
+	j.pauseCond = sync.NewCond(&j.pauseMu)
+	return j
 }
 
 // Start implements progress.Indicator.
@@ -102,6 +120,10 @@ func (j *Job) Run(fn func(p progress.Indicator) (any, error)) {
 	j.mu.Unlock()
 
 	j.current.Store(0)
+	j.cancelled.Store(false)
+	j.pauseMu.Lock()
+	j.paused = false
+	j.pauseMu.Unlock()
 	j.invalidate()
 
 	go func() {
@@ -116,6 +138,77 @@ func (j *Job) Run(fn func(p progress.Indicator) (any, error)) {
 
 		j.invalidate()
 	}()
+}
+
+// Pause freezes the running engine. The engine keeps blocking in
+// WaitIfPaused until Resume is called. Pausing a job that is not running
+// does nothing.
+func (j *Job) Pause() {
+	if !j.isRunning() {
+		return
+	}
+	j.pauseMu.Lock()
+	j.paused = true
+	j.pauseMu.Unlock()
+	j.invalidate()
+}
+
+// Resume unfreezes a paused engine.
+func (j *Job) Resume() {
+	j.pauseMu.Lock()
+	j.paused = false
+	j.pauseMu.Unlock()
+	j.pauseCond.Broadcast()
+	j.invalidate()
+}
+
+// TogglePause pauses a running job and resumes a paused one.
+func (j *Job) TogglePause() {
+	if !j.isRunning() {
+		return
+	}
+	j.pauseMu.Lock()
+	j.paused = !j.paused
+	resumed := !j.paused
+	j.pauseMu.Unlock()
+	if resumed {
+		j.pauseCond.Broadcast()
+	}
+	j.invalidate()
+}
+
+// Cancel stops the running engine. The engine aborts at its next
+// cancellation checkpoint and reports progress.ErrCancelled. Cancelling a
+// job that is not running does nothing.
+func (j *Job) Cancel() {
+	if !j.isRunning() {
+		return
+	}
+	j.cancelled.Store(true)
+	j.pauseMu.Lock()
+	j.paused = false
+	j.pauseMu.Unlock()
+	j.pauseCond.Broadcast()
+	j.invalidate()
+}
+
+// Cancelled implements progress.Cancellable.
+func (j *Job) Cancelled() bool { return j.cancelled.Load() }
+
+// WaitIfPaused implements progress.Cancellable.
+func (j *Job) WaitIfPaused() {
+	j.pauseMu.Lock()
+	for j.paused && !j.cancelled.Load() {
+		j.pauseCond.Wait()
+	}
+	j.pauseMu.Unlock()
+}
+
+// isPaused reports whether the job is paused.
+func (j *Job) isPaused() bool {
+	j.pauseMu.Lock()
+	defer j.pauseMu.Unlock()
+	return j.paused
 }
 
 // isRunning reports whether a scan is in progress.
