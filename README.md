@@ -643,6 +643,7 @@ platform:
 sudo apt-get install -y \
   gcc pkg-config \
   libegl-dev libgles-dev \
+  libvulkan-dev \
   libwayland-dev \
   libx11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev \
   libxkbcommon-dev libxkbcommon-x11-dev

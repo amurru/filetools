@@ -69,9 +69,11 @@ jobs:
           sudo apt-get install -y \
             gcc pkg-config \
             libegl-dev libgles-dev \
+            libvulkan-dev \
             libwayland-dev \
             libx11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev \
-            libxkbcommon-dev libxkbcommon-x11-dev
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libegl1 libgl1-mesa-dri
 
       - name: Vet
         run: go vet -tags gui ./...
@@ -80,8 +82,10 @@ jobs:
         run: go build -tags gui ./...
 
       # The interface is rendered offscreen, so the tests need a software
-      # renderer.
+      # renderer. The runner has no display, so EGL is used without a
+      # surface.
       - name: Test
         env:
+          EGL_PLATFORM: surfaceless
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: go test -tags gui -race ./...
