@@ -4,7 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![SLSA Go releaser](https://github.com/amurru/filetools/actions/workflows/go-ossf-slsa3-publish.yml/badge.svg)](https://github.com/amurru/filetools/actions/workflows/go-ossf-slsa3-publish.yml)
 
-A collection of command-line tools for efficient file management and analysis, built with Go.
+A collection of file management and analysis tools, built with Go. Every tool
+is available both as a command and through a graphical interface.
 
 ## Features
 
@@ -25,6 +26,7 @@ A collection of command-line tools for efficient file management and analysis, b
 - **Structured Data**: JSON/XML output provides machine-readable duplicate file information with metadata
 - **Rich HTML Reports**: Generate professional HTML reports with styling, statistics, and interactive features
 - **Comprehensive Metadata**: All structured outputs include execution context and branding information
+- **Graphical Interface**: The same tools in a desktop window, with previews before anything is moved or renamed
 
 ### Planned Tools
 
@@ -571,28 +573,33 @@ date: 2025-10-27T14:30:45Z
 filetools/
 ├── cmd/                    # CLI commands
 │   ├── dirstat.go         # Directory statistics command
-│   ├── dirstat_test.go    # Tests for dirstat
 │   ├── dupfind.go         # Duplicate file finder command
-│   ├── dupfind_test.go    # Tests for dupfind
+│   ├── gui.go             # Graphical interface command (build tag "gui")
+│   ├── gui_stub.go        # Graphical interface placeholder (build tag "!gui")
 │   ├── organize.go        # File organizer command
-│   ├── organize_test.go   # Tests for organize
 │   ├── rename.go          # Batch rename command
-│   ├── rename_test.go     # Tests for rename
 │   ├── root.go            # Root command and global flags
 │   ├── size.go            # File size analyzer command
-│   ├── size_test.go       # Tests for size
 │   └── version.go         # Version command
 ├── internal/
 │   ├── exclusions/        # Exclusion pattern matching
 │   │   └── exclusions.go
-│   └── output/            # Output formatting module
-│       ├── formatter.go   # Core interfaces and data structures
-│       ├── json.go        # JSON formatter
-│       ├── xml.go         # XML formatter
-│       ├── html.go        # HTML formatter
-│       ├── text.go        # Text formatter
-│       ├── progress.go    # Progress indicators
-│       └── formatter_test.go # Output tests
+│   ├── gui/               # Graphical interface (build tag "gui")
+│   │   ├── app.go         # Window, navigation and event loop
+│   │   ├── job.go         # Background runner and progress reporting
+│   │   ├── theme.go       # Light and dark palettes
+│   │   ├── widgets.go     # Panels, forms, tables and charts
+│   │   └── page_*.go      # One page per tool
+│   ├── output/            # Output formatting module
+│   │   ├── formatter.go   # Formatter interface
+│   │   ├── json.go        # JSON formatter
+│   │   ├── xml.go         # XML formatter
+│   │   ├── html.go        # HTML formatter
+│   │   └── text.go        # Text formatter
+│   ├── progress/          # Progress reporting contract and reporter
+│   ├── report/            # Data model shared by every front end
+│   ├── scan/              # Analysis engines, shared by every front end
+│   └── version/           # Build metadata injected via ldflags
 ├── main.go                # Application entry point
 ├── go.mod                 # Go module definition
 ├── Makefile               # Build automation
@@ -601,12 +608,48 @@ filetools/
 
 ## Architecture
 
-The tool is built with a modular architecture:
+The tool is built with a layered architecture. The dependency direction is
+strictly downwards, nothing in a lower layer imports a higher one.
 
-- **CLI Layer**: Uses Cobra for command-line interface with persistent flags
-- **Core Logic**: File hashing and duplicate detection algorithms
-- **Output Layer**: Pluggable formatters for different output types
-- **Data Flow**: Structured data flows from detection → formatting → output (stdout/file)
+- **Front Ends**: `cmd` for the command line and `internal/gui` for the
+  graphical interface. Both are thin adapters over the same engines.
+- **Analysis Layer**: `internal/scan` holds the engines. They take an options
+  struct, report their progress and return a report structure. They know
+  nothing about the front end.
+- **Data Model**: `internal/report` holds the structures that flow from the
+  engines to the formatters and to the interface.
+- **Output Layer**: `internal/output` renders a report as text, JSON, XML or
+  HTML.
+
+## Graphical Interface
+
+The same tools are available in a desktop window, built with
+[Gio](https://gioui.org). The interface shows a preview of what a tool would
+do before it touches the filesystem, and the renaming and organizing pages
+ask for a confirmation before they change anything.
+
+The interface is guarded by the `gui` build tag, so the command line tool
+stays pure Go and cross compiles to any target as before.
+
+```bash
+make build-gui     # Builds bin/filetools-gui
+./bin/filetools-gui gui
+```
+
+On Linux the build needs cgo and the windowing and graphics libraries of the
+platform:
+
+```bash
+sudo apt-get install -y \
+  gcc pkg-config \
+  libegl-dev libgles-dev \
+  libwayland-dev \
+  libx11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev \
+  libxkbcommon-dev libxkbcommon-x11-dev
+```
+
+On Windows and macOS no extra packages are needed. The release artifacts are
+named `filetools-gui-windows-amd64.exe` and `filetools-gui-linux-amd64`.
 
 ## Command Reference
 
@@ -764,8 +807,21 @@ make test
 Run specific tests:
 
 ```bash
-go test -run TestCalculateHash ./cmd/
+go test -run TestCalculateHash ./internal/scan/
 go test ./internal/output/
+```
+
+The graphical interface is tested by rendering it offscreen. The tests need
+an EGL implementation and are skipped when none is available:
+
+```bash
+go test -tags gui ./internal/gui/
+```
+
+A screenshot of the interface can be written for review:
+
+```bash
+FILETOOLS_GUI_SCREENSHOT=/tmp/gui.png go test -tags gui -run Screenshot ./internal/gui/
 ```
 
 ### Code Quality
@@ -777,6 +833,19 @@ The project follows Go best practices:
 - Follows standard Go naming conventions
 - Uses Cobra for CLI framework
 - Modular architecture for maintainability
+
+### Adding a New Tool
+
+To add a new tool:
+
+1. Add the analysis engine in `internal/scan/` with an options struct, a
+   `progress.Indicator` parameter and a `report.*Result` return value
+2. Define the result struct in `internal/report/report.go`
+3. Add the formatter to `internal/output/` and to the `OutputFormatter`
+   interface
+4. Register the Cobra command in `cmd/`
+5. Add the interface page in `internal/gui/pages/`
+6. Add tests in `internal/scan/`
 
 ### Adding New Output Formats
 
