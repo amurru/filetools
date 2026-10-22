@@ -789,6 +789,16 @@ func pageHeader(gtx layout.Context, th *theme, title string) layout.Dimensions {
 	return label.Layout(gtx)
 }
 
+// emptyHint shows a hint in the results area when there is nothing to show
+// yet.
+func emptyHint(gtx layout.Context, th *theme, text string) layout.Dimensions {
+	label := material.Body2(th.Theme, text)
+	label.Color = th.palette.Muted
+	return layout.Inset{Top: unit.Dp(8)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return label.Layout(gtx)
+	})
+}
+
 // layoutProgress draws the progress of a running job.
 //
 // The layout returns nothing when no job ran yet, so the pages can simply

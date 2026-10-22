@@ -58,7 +58,6 @@ func (t *topField) value() int {
 // newSizePage builds the size analysis page.
 func newSizePage(win *app.Window) *sizePage {
 	p := &sizePage{job: newJob(win), filesTable: newTable()}
-	p.dir.setPath(".")
 	p.top.editor.SetText("10")
 	p.picker.onChoose = func(path string) {
 		p.dir.setPath(path)
@@ -148,7 +147,7 @@ func (p *sizePage) layoutForm(gtx layout.Context, th *theme) layout.Dimensions {
 func (p *sizePage) layoutResults(gtx layout.Context, th *theme) layout.Dimensions {
 	result, _ := p.job.output().(*report.SizeReportResult)
 	if result == nil {
-		return layout.Dimensions{}
+		return emptyHint(gtx, th, "Choose a directory and run the analysis.")
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -215,7 +214,7 @@ func (p *sizePage) layoutLargest(gtx layout.Context, th *theme, result *report.S
 func (p *sizePage) run() {
 	dir := p.dir.path()
 	if dir == "" {
-		dir = "."
+		return
 	}
 
 	opts := scan.SizeOptions{

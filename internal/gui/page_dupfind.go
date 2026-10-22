@@ -66,7 +66,6 @@ func (s *sizeField) value() int64 {
 // newDupfindPage builds the duplicate finder page.
 func newDupfindPage(win *app.Window) *dupfindPage {
 	p := &dupfindPage{job: newJob(win), groupsTable: newTable()}
-	p.dir.setPath(".")
 	p.algorithm.Value = "md5"
 	p.picker.onChoose = func(path string) {
 		p.dir.setPath(path)
@@ -189,7 +188,7 @@ func (p *dupfindPage) layoutAlgorithm(gtx layout.Context, th *theme) layout.Dime
 func (p *dupfindPage) layoutResults(gtx layout.Context, th *theme) layout.Dimensions {
 	result, _ := p.job.output().(*report.DuplicateResult)
 	if result == nil {
-		return layout.Dimensions{}
+		return emptyHint(gtx, th, "Choose a directory and start the search.")
 	}
 
 	if !result.Found {
@@ -254,7 +253,7 @@ func (p *dupfindPage) layoutGroups(gtx layout.Context, th *theme, result *report
 func (p *dupfindPage) run() {
 	dir := p.dir.path()
 	if dir == "" {
-		dir = "."
+		return
 	}
 
 	opts := scan.DuplicateOptions{

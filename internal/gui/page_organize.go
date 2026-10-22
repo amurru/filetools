@@ -39,9 +39,12 @@ type organizePage struct {
 	hidden    widget.Bool
 	overwrite widget.Bool
 
-	// previewKey holds the inputs the current preview was computed from.
-	previewKey string
+	// debouncer delays the recomputation of the preview while the inputs
+	// are changing.
+	debouncer previewDebouncer
 
+	// applied reports whether the outcome of the last apply was already
+	// taken into account.
 	applied bool
 
 	applyBtn     widget.Clickable
@@ -57,7 +60,6 @@ type organizePage struct {
 // newOrganizePage builds the organize page.
 func newOrganizePage(win *app.Window) *organizePage {
 	p := &organizePage{previewJob: newJob(win), applyJob: newJob(win), movesTable: newTable()}
-	p.source.setPath(".")
 	p.criteria.Value = "type"
 	p.picker.onChoose = func(path string) {
 		p.dest.setPath(path)
@@ -213,11 +215,11 @@ func (p *organizePage) layoutActions(gtx layout.Context, th *theme) layout.Dimen
 
 // layoutResults draws the preview of the planned moves.
 func (p *organizePage) layoutResults(gtx layout.Context, th *theme) layout.Dimensions {
-	p.refreshPreview()
+	p.refreshPreview(gtx)
 
 	result, _ := p.previewJob.output().(*report.OrganizeResult)
 	if result == nil {
-		return layout.Dimensions{}
+		return emptyHint(gtx, th, "Choose a directory to see the files that would be moved.")
 	}
 
 	if len(result.Operations) == 0 {
@@ -269,17 +271,21 @@ func (p *organizePage) layoutMoves(gtx layout.Context, th *theme, result *report
 
 // refreshPreview recomputes the preview when the inputs changed or when the
 // last apply changed the files on disk.
-func (p *organizePage) refreshPreview() {
+func (p *organizePage) refreshPreview(gtx layout.Context) {
 	if _, _, _, _, done, _ := p.applyJob.state(); done && !p.applied {
 		p.applied = true
-		p.previewKey = ""
+		p.debouncer.invalidate()
+	}
+
+	// Without a directory there is nothing to preview.
+	if p.source.path() == "" {
+		return
 	}
 
 	key := p.source.path() + "\x00" + p.dest.path() + "\x00" + p.criteria.Value
-	if key == p.previewKey || p.previewJob.isRunning() {
+	if !p.debouncer.refresh(gtx, key) || p.previewJob.isRunning() {
 		return
 	}
-	p.previewKey = key
 
 	opts := p.options(true)
 	p.previewJob.Run(func(pr progress.Indicator) (any, error) {

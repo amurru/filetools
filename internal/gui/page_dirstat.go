@@ -34,7 +34,6 @@ type dirStatPage struct {
 // newDirStatPage builds the directory statistics page.
 func newDirStatPage(win *app.Window) *dirStatPage {
 	p := &dirStatPage{job: newJob(win), dirsTable: newTable()}
-	p.dir.setPath(".")
 	p.picker.onChoose = func(path string) {
 		p.dir.setPath(path)
 	}
@@ -115,7 +114,7 @@ func (p *dirStatPage) layoutForm(gtx layout.Context, th *theme) layout.Dimension
 func (p *dirStatPage) layoutResults(gtx layout.Context, th *theme) layout.Dimensions {
 	result, _ := p.job.output().(*report.DirStatResult)
 	if result == nil {
-		return layout.Dimensions{}
+		return emptyHint(gtx, th, "Choose a directory and run the analysis.")
 	}
 
 	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -189,7 +188,7 @@ func (p *dirStatPage) layoutDirectories(gtx layout.Context, th *theme, result *r
 func (p *dirStatPage) run() {
 	dir := p.dir.path()
 	if dir == "" {
-		dir = "."
+		return
 	}
 
 	opts := scan.DirStatOptions{

@@ -29,9 +29,9 @@ type renamePage struct {
 	match textField
 	sed   textField
 
-	// previewKey holds the inputs the current preview was computed from. A
-	// change of the inputs triggers a new preview.
-	previewKey string
+	// debouncer delays the recomputation of the preview while the inputs
+	// are changing.
+	debouncer previewDebouncer
 
 	// applied reports whether the outcome of the last apply was already
 	// taken into account.
@@ -49,7 +49,6 @@ type renamePage struct {
 // newRenamePage builds the rename page.
 func newRenamePage(win *app.Window) *renamePage {
 	p := &renamePage{previewJob: newJob(win), applyJob: newJob(win), previewTable: newTable()}
-	p.dir.setPath(".")
 	p.match.setValue("*")
 	p.picker.onChoose = func(path string) {
 		p.dir.setPath(path)
@@ -160,11 +159,11 @@ func (p *renamePage) layoutActions(gtx layout.Context, th *theme) layout.Dimensi
 
 // layoutResults draws the preview of the planned renames.
 func (p *renamePage) layoutResults(gtx layout.Context, th *theme) layout.Dimensions {
-	p.refreshPreview()
+	p.refreshPreview(gtx)
 
 	result, _ := p.previewJob.output().(*report.RenameResult)
 	if result == nil {
-		return layout.Dimensions{}
+		return emptyHint(gtx, th, "Choose a directory to see the files that would be renamed.")
 	}
 
 	if len(result.Operations) == 0 {
@@ -198,18 +197,22 @@ func (p *renamePage) layoutResults(gtx layout.Context, th *theme) layout.Dimensi
 
 // refreshPreview recomputes the preview when the inputs changed or when the
 // last apply changed the files on disk.
-func (p *renamePage) refreshPreview() {
+func (p *renamePage) refreshPreview(gtx layout.Context) {
 	// An apply that just finished invalidates the preview.
 	if _, _, _, _, done, _ := p.applyJob.state(); done && !p.applied {
 		p.applied = true
-		p.previewKey = ""
+		p.debouncer.invalidate()
+	}
+
+	// Without a directory there is nothing to preview.
+	if p.dir.path() == "" {
+		return
 	}
 
 	key := p.dir.path() + "\x00" + p.match.value() + "\x00" + p.sed.value()
-	if key == p.previewKey || p.previewJob.isRunning() {
+	if !p.debouncer.refresh(gtx, key) || p.previewJob.isRunning() {
 		return
 	}
-	p.previewKey = key
 
 	opts := p.options(true)
 	p.previewJob.Run(func(pr progress.Indicator) (any, error) {
