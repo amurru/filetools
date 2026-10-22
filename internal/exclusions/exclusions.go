@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"amurru/filetools/internal/output"
+	"amurru/filetools/internal/report"
 )
 
 // ExclusionMatcher defines the interface for matching exclusions
@@ -76,7 +76,7 @@ func ParseExclusions(patterns string, isFile bool) []ExclusionMatcher {
 }
 
 // CheckExclusions checks if a path matches any exclusion and returns the exclusion if matched
-func CheckExclusions(path string, isDir bool, fileMatchers, dirMatchers []ExclusionMatcher) *output.Exclusion {
+func CheckExclusions(path string, isDir bool, fileMatchers, dirMatchers []ExclusionMatcher) *report.Exclusion {
 	var matchers []ExclusionMatcher
 	if isDir {
 		matchers = dirMatchers
@@ -86,7 +86,7 @@ func CheckExclusions(path string, isDir bool, fileMatchers, dirMatchers []Exclus
 
 	for _, matcher := range matchers {
 		if matcher.Matches(path, isDir) {
-			return &output.Exclusion{
+			return &report.Exclusion{
 				Path:   path,
 				Reason: matcher.GetReason(),
 			}

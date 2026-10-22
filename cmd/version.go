@@ -3,14 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"amurru/filetools/internal/version"
 	"github.com/spf13/cobra"
-)
-
-var (
-	version    string
-	commit     string
-	commitDate string
-	treeState  string
 )
 
 // versionCmd represents the version command
@@ -19,38 +13,16 @@ var versionCmd = &cobra.Command{
 	Short: "Prints the version",
 	Long:  "Prints the version of the filetools command line tool.",
 	Run: func(cmd *cobra.Command, args []string) {
-		if version == "" {
-			version = "dev"
-		}
-		if commit == "" {
-			commit = "none"
-		}
-		if commitDate == "" {
-			commitDate = "unknown"
-		}
-		if treeState == "" {
-			treeState = "unknown"
-		}
 		fmt.Printf(
 			"version: %s\ncommit: %s\ncommit-date: %s\ntree-state: %s\n",
-			version,
-			commit,
-			commitDate,
-			treeState,
+			version.String(),
+			version.CommitString(),
+			version.CommitDateString(),
+			version.TreeStateString(),
 		)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// versionCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// versionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

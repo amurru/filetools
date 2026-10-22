@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"amurru/filetools/internal/output"
+	"amurru/filetools/internal/progress"
+	"amurru/filetools/internal/report"
+	"amurru/filetools/internal/version"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // outputFormat represents the desired output format
@@ -116,4 +121,56 @@ func getOutputWriter(cmd *cobra.Command) (io.Writer, func(), error) {
 
 	// Return file writer and cleanup function
 	return file, func() { file.Close() }, nil
+}
+
+// newProgressIndicator creates the progress reporter for a command.
+//
+// Progress is only reported when human readable output goes to a terminal:
+// a structured format written to a file would be broken by the extra lines
+// and a redirected stderr is usually consumed by another program.
+func newProgressIndicator(cmd *cobra.Command) progress.Indicator {
+	if disabled, _ := cmd.Flags().GetBool("no-progress"); disabled {
+		return progress.Nop{}
+	}
+
+	// Only disable progress for structured file output (to avoid breaking parsers)
+	// Allow progress for text file output since it's human-readable
+	if outputFile != "" && getOutputFormat(cmd) != output.FormatText {
+		return progress.Nop{}
+	}
+
+	// Disable progress bars if stderr is not a terminal
+	if !isTerminal(os.Stderr) {
+		return progress.Nop{}
+	}
+
+	return progress.NewText(os.Stderr)
+}
+
+// isTerminal reports whether the given file is attached to a terminal.
+func isTerminal(f *os.File) bool {
+	if f == nil {
+		return false
+	}
+	return term.IsTerminal(int(f.Fd()))
+}
+
+// newMetadata builds the metadata block describing a command run.
+func newMetadata(subCommand string, flags []report.Flag) *report.Metadata {
+	return &report.Metadata{
+		ToolName:    "filetools",
+		SubCommand:  subCommand,
+		Flags:       flags,
+		Version:     version.String(),
+		GeneratedAt: time.Now().Format(time.RFC3339),
+	}
+}
+
+// dirArg returns the directory to operate on, defaulting to the current
+// directory when no argument was given.
+func dirArg(args []string) string {
+	if len(args) > 0 {
+		return args[0]
+	}
+	return "."
 }

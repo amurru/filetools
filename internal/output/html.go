@@ -1,6 +1,7 @@
 package output
 
 import (
+	"amurru/filetools/internal/report"
 	"fmt"
 	"html"
 	"io"
@@ -12,28 +13,28 @@ import (
 type HTMLFormatter struct{}
 
 // FormatDuplicates formats duplicate results as HTML
-func (f *HTMLFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writer) error {
+func (f *HTMLFormatter) FormatDuplicates(result *report.DuplicateResult, writer io.Writer) error {
 	htmlContent := f.generateHTML(result)
 	_, err := writer.Write([]byte(htmlContent))
 	return err
 }
 
 // FormatRename formats rename results as HTML
-func (f *HTMLFormatter) FormatRename(result *RenameResult, writer io.Writer) error {
+func (f *HTMLFormatter) FormatRename(result *report.RenameResult, writer io.Writer) error {
 	htmlContent := f.generateHTMLRename(result)
 	_, err := writer.Write([]byte(htmlContent))
 	return err
 }
 
 // FormatOrganize formats organize results as HTML
-func (f *HTMLFormatter) FormatOrganize(result *OrganizeResult, writer io.Writer) error {
+func (f *HTMLFormatter) FormatOrganize(result *report.OrganizeResult, writer io.Writer) error {
 	htmlContent := f.generateHTMLOrganize(result)
 	_, err := writer.Write([]byte(htmlContent))
 	return err
 }
 
 // FormatSizeReport formats a size analysis as HTML
-func (f *HTMLFormatter) FormatSizeReport(result *SizeReportResult, writer io.Writer) error {
+func (f *HTMLFormatter) FormatSizeReport(result *report.SizeReportResult, writer io.Writer) error {
 	htmlContent := f.generateHTMLSizeReport(result)
 	_, err := writer.Write([]byte(htmlContent))
 	return err
@@ -173,7 +174,7 @@ const reportStyles = `
         }`
 
 // generateHTML creates the complete HTML document
-func (f *HTMLFormatter) generateHTML(result *DuplicateResult) string {
+func (f *HTMLFormatter) generateHTML(result *report.DuplicateResult) string {
 	var sb strings.Builder
 
 	sb.WriteString(`<!DOCTYPE html>
@@ -480,7 +481,7 @@ func (f *HTMLFormatter) generateHTML(result *DuplicateResult) string {
 }
 
 // generateGroupHTML creates HTML for a single duplicate group
-func (f *HTMLFormatter) generateGroupHTML(group DuplicateGroup, _ int) string {
+func (f *HTMLFormatter) generateGroupHTML(group report.DuplicateGroup, _ int) string {
 	var sb strings.Builder
 
 	// Sort files alphabetically
@@ -529,14 +530,14 @@ func (f *HTMLFormatter) generateGroupHTML(group DuplicateGroup, _ int) string {
 }
 
 // FormatDirStat formats directory statistics as HTML
-func (f *HTMLFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) error {
+func (f *HTMLFormatter) FormatDirStat(result *report.DirStatResult, writer io.Writer) error {
 	htmlContent := f.generateDirStatHTML(result)
 	_, err := writer.Write([]byte(htmlContent))
 	return err
 }
 
 // generateDirStatHTML creates the complete HTML document for directory statistics
-func (f *HTMLFormatter) generateDirStatHTML(result *DirStatResult) string {
+func (f *HTMLFormatter) generateDirStatHTML(result *report.DirStatResult) string {
 	var sb strings.Builder
 
 	sb.WriteString(`<!DOCTYPE html>
@@ -909,7 +910,7 @@ func (f *HTMLFormatter) generateDirStatHTML(result *DirStatResult) string {
 }
 
 // generateHTMLRename creates the complete HTML document for rename results
-func (f *HTMLFormatter) generateHTMLRename(result *RenameResult) string {
+func (f *HTMLFormatter) generateHTMLRename(result *report.RenameResult) string {
 	var sb strings.Builder
 
 	sb.WriteString(`<!DOCTYPE html>
@@ -1104,7 +1105,7 @@ func (f *HTMLFormatter) generateHTMLRename(result *RenameResult) string {
 }
 
 // generateHTMLOrganize creates the complete HTML document for organize results
-func (f *HTMLFormatter) generateHTMLOrganize(result *OrganizeResult) string {
+func (f *HTMLFormatter) generateHTMLOrganize(result *report.OrganizeResult) string {
 	var sb strings.Builder
 
 	sb.WriteString(`<!DOCTYPE html>
@@ -1265,7 +1266,7 @@ func (f *HTMLFormatter) generateHTMLOrganize(result *OrganizeResult) string {
 }
 
 // generateHTMLSizeReport creates the complete HTML document for a size analysis
-func (f *HTMLFormatter) generateHTMLSizeReport(result *SizeReportResult) string {
+func (f *HTMLFormatter) generateHTMLSizeReport(result *report.SizeReportResult) string {
 	var sb strings.Builder
 
 	sb.WriteString(`<!DOCTYPE html>

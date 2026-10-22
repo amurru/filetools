@@ -1,4 +1,4 @@
-package cmd
+package scan
 
 import (
 	"os"
@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"amurru/filetools/internal/exclusions"
-	"amurru/filetools/internal/output"
+	"amurru/filetools/internal/progress"
+	"amurru/filetools/internal/report"
 )
 
 // createOrganizeTree creates a directory with one file per extension and returns its path
@@ -116,23 +116,26 @@ func TestCategorizeFileByDate(t *testing.T) {
 	}
 }
 
-func TestOrganizeFilesDryRun(t *testing.T) {
+func TestOrganizeDryRun(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: true}
-	ops, categories, excl, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source: tmpDir,
+		By:     "type",
+		DryRun: true,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
 
-	if len(ops) != 4 {
-		t.Errorf("Expected 4 operations, got %d", len(ops))
+	if len(result.Operations) != 4 {
+		t.Errorf("Expected 4 operations, got %d", len(result.Operations))
 	}
-	if len(categories) != 3 {
-		t.Errorf("Expected 3 categories, got %d", len(categories))
+	if len(result.Categories) != 3 {
+		t.Errorf("Expected 3 categories, got %d", len(result.Categories))
 	}
-	if len(excl) != 0 {
-		t.Errorf("Expected no exclusions, got %d", len(excl))
+	if len(result.Exclusions) != 0 {
+		t.Errorf("Expected no exclusions, got %d", len(result.Exclusions))
 	}
 
 	// The files must not have moved
@@ -143,20 +146,23 @@ func TestOrganizeFilesDryRun(t *testing.T) {
 	}
 }
 
-func TestOrganizeFilesMove(t *testing.T) {
+func TestOrganizeMove(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: false}
-	ops, categories, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source: tmpDir,
+		By:     "type",
+		DryRun: false,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
 
-	if len(ops) != 4 {
-		t.Fatalf("Expected 4 operations, got %d", len(ops))
+	if len(result.Operations) != 4 {
+		t.Fatalf("Expected 4 operations, got %d", len(result.Operations))
 	}
 
-	for _, op := range ops {
+	for _, op := range result.Operations {
 		if op.Error != "" {
 			t.Errorf("Unexpected error for %s: %s", op.OldPath, op.Error)
 		}
@@ -177,11 +183,11 @@ func TestOrganizeFilesMove(t *testing.T) {
 	}
 
 	// The category summary must match the moved files
-	if len(categories) != 3 {
-		t.Errorf("Expected 3 categories, got %d", len(categories))
+	if len(result.Categories) != 3 {
+		t.Errorf("Expected 3 categories, got %d", len(result.Categories))
 	}
 	var total int
-	for _, cat := range categories {
+	for _, cat := range result.Categories {
 		total += cat.FileCount
 	}
 	if total != 4 {
@@ -189,25 +195,26 @@ func TestOrganizeFilesMove(t *testing.T) {
 	}
 }
 
-func TestOrganizeFilesIsIdempotent(t *testing.T) {
+func TestOrganizeIsIdempotent(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: false}
-	if _, _, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{}); err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+	opts := OrganizeOptions{Source: tmpDir, By: "type", DryRun: false}
+
+	if _, err := Organize(opts, progress.Nop{}); err != nil {
+		t.Fatalf("Organize failed: %v", err)
 	}
 
 	// A second run must not find anything left to do
-	ops, _, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(opts, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
-	if len(ops) != 0 {
-		t.Errorf("Expected no operations on the second run, got %d", len(ops))
+	if len(result.Operations) != 0 {
+		t.Errorf("Expected no operations on the second run, got %d", len(result.Operations))
 	}
 }
 
-func TestOrganizeFilesCollision(t *testing.T) {
+func TestOrganizeCollision(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 
 	// Create a file that would collide with the target
@@ -219,16 +226,19 @@ func TestOrganizeFilesCollision(t *testing.T) {
 		t.Fatalf("Failed to create colliding file: %v", err)
 	}
 
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: false}
-	ops, _, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source: tmpDir,
+		By:     "type",
+		DryRun: false,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
 
-	var collision *output.OrganizeOperation
-	for i := range ops {
-		if ops[i].OldPath == "a.txt" {
-			collision = &ops[i]
+	var collision *report.OrganizeOperation
+	for i := range result.Operations {
+		if result.Operations[i].OldPath == "a.txt" {
+			collision = &result.Operations[i]
 		}
 	}
 
@@ -249,7 +259,7 @@ func TestOrganizeFilesCollision(t *testing.T) {
 	}
 }
 
-func TestOrganizeFilesOverwrite(t *testing.T) {
+func TestOrganizeOverwrite(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 
 	docsDir := filepath.Join(tmpDir, "documents")
@@ -260,13 +270,17 @@ func TestOrganizeFilesOverwrite(t *testing.T) {
 		t.Fatalf("Failed to create colliding file: %v", err)
 	}
 
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: false, Overwrite: true}
-	ops, _, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source:    tmpDir,
+		By:        "type",
+		DryRun:    false,
+		Overwrite: true,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
 
-	for _, op := range ops {
+	for _, op := range result.Operations {
 		if op.OldPath == "a.txt" && op.Error != "" {
 			t.Errorf("Expected no error with overwrite enabled, got %s", op.Error)
 		}
@@ -281,7 +295,7 @@ func TestOrganizeFilesOverwrite(t *testing.T) {
 	}
 }
 
-func TestOrganizeFilesHiddenFiles(t *testing.T) {
+func TestOrganizeHiddenFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	if err := os.WriteFile(filepath.Join(tmpDir, ".hidden.txt"), []byte("secret"), 0644); err != nil {
@@ -292,82 +306,101 @@ func TestOrganizeFilesHiddenFiles(t *testing.T) {
 	}
 
 	// Hidden files are skipped by default
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: true}
-	ops, _, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source: tmpDir,
+		By:     "type",
+		DryRun: true,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
-	if len(ops) != 1 {
-		t.Errorf("Expected 1 operation, got %d", len(ops))
+
+	if len(result.Operations) != 1 {
+		t.Errorf("Expected 1 operation, got %d", len(result.Operations))
 	}
 
 	// Unless they are explicitly requested
-	opts.IncludeHidden = true
-	ops, _, _, err = organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err = Organize(OrganizeOptions{
+		Source:        tmpDir,
+		By:            "type",
+		DryRun:        true,
+		IncludeHidden: true,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
-	if len(ops) != 2 {
-		t.Errorf("Expected 2 operations, got %d", len(ops))
+
+	if len(result.Operations) != 2 {
+		t.Errorf("Expected 2 operations, got %d", len(result.Operations))
 	}
 }
 
-func TestOrganizeFilesCategoryFilter(t *testing.T) {
+func TestOrganizeCategoryFilter(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: true, Category: "images"}
-	ops, categories, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source:   tmpDir,
+		By:       "type",
+		DryRun:   true,
+		Category: "images",
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
 
-	if len(ops) != 1 {
-		t.Fatalf("Expected 1 operation, got %d", len(ops))
+	if len(result.Operations) != 1 {
+		t.Fatalf("Expected 1 operation, got %d", len(result.Operations))
 	}
-	if ops[0].Category != "images" {
-		t.Errorf("Expected category 'images', got %s", ops[0].Category)
+	if result.Operations[0].Category != "images" {
+		t.Errorf("Expected category 'images', got %s", result.Operations[0].Category)
 	}
-	if len(categories) != 1 {
-		t.Errorf("Expected 1 category, got %d", len(categories))
+	if len(result.Categories) != 1 {
+		t.Errorf("Expected 1 category, got %d", len(result.Categories))
 	}
 }
 
-func TestOrganizeFilesWithExclusions(t *testing.T) {
+func TestOrganizeWithExclusions(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 
-	fileMatchers := exclusions.ParseExclusions("*.go", true)
-
-	opts := organizeOptions{By: "type", DestDir: tmpDir, DryRun: true}
-	ops, _, excl, err := organizeFiles(tmpDir, opts, fileMatchers, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source:      tmpDir,
+		By:          "type",
+		DryRun:      true,
+		ExcludeFile: "*.go",
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
 
-	if len(excl) != 1 {
-		t.Errorf("Expected 1 exclusion, got %d", len(excl))
+	if len(result.Exclusions) != 1 {
+		t.Errorf("Expected 1 exclusion, got %d", len(result.Exclusions))
 	}
-	for _, op := range ops {
+	for _, op := range result.Operations {
 		if op.OldPath == "c.go" {
 			t.Error("Expected the excluded file to be skipped")
 		}
 	}
 }
 
-func TestOrganizeFilesSeparateDestination(t *testing.T) {
+func TestOrganizeSeparateDestination(t *testing.T) {
 	tmpDir := createOrganizeTree(t)
 	destDir := filepath.Join(t.TempDir(), "organized")
 
-	opts := organizeOptions{By: "extension", DestDir: destDir, DryRun: false}
-	ops, _, _, err := organizeFiles(tmpDir, opts, nil, nil, &output.NoOpProgressIndicator{})
+	result, err := Organize(OrganizeOptions{
+		Source: tmpDir,
+		Dest:   destDir,
+		By:     "extension",
+		DryRun: false,
+	}, progress.Nop{})
 	if err != nil {
-		t.Fatalf("organizeFiles failed: %v", err)
+		t.Fatalf("Organize failed: %v", err)
 	}
 
-	if len(ops) != 4 {
-		t.Fatalf("Expected 4 operations, got %d", len(ops))
+	if len(result.Operations) != 4 {
+		t.Fatalf("Expected 4 operations, got %d", len(result.Operations))
 	}
 
-	for _, op := range ops {
+	for _, op := range result.Operations {
 		if op.Error != "" {
 			t.Errorf("Unexpected error: %s", op.Error)
 		}
@@ -379,5 +412,97 @@ func TestOrganizeFilesSeparateDestination(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(tmpDir, "a.txt")); !os.IsNotExist(err) {
 		t.Error("Expected the source file to be gone")
+	}
+}
+
+// TestOrganizeDuplicateTarget verifies that two files of the same run never
+// move to the same target. The second one would destroy the first one when
+// existing files are replaced.
+func TestOrganizeDuplicateTarget(t *testing.T) {
+	// The tree holds two files with the same name, so both of them end up
+	// at documents/a.txt.
+	newTree := func(t *testing.T) string {
+		t.Helper()
+
+		tmpDir := t.TempDir()
+		subDir := filepath.Join(tmpDir, "sub")
+		if err := os.Mkdir(subDir, 0755); err != nil {
+			t.Fatalf("Failed to create subdirectory: %v", err)
+		}
+		for _, path := range []string{"a.txt", "sub/a.txt"} {
+			if err := os.WriteFile(filepath.Join(tmpDir, path), []byte(path), 0644); err != nil {
+				t.Fatalf("Failed to create %s: %v", path, err)
+			}
+		}
+		return tmpDir
+	}
+
+	t.Run("dry run", func(t *testing.T) {
+		tmpDir := newTree(t)
+
+		result, err := Organize(OrganizeOptions{
+			Source:    tmpDir,
+			By:        "type",
+			DryRun:    true,
+			Overwrite: true,
+		}, progress.Nop{})
+		if err != nil {
+			t.Fatalf("Organize failed: %v", err)
+		}
+
+		if len(result.Operations) != 2 {
+			t.Fatalf("Expected 2 operations, got %d", len(result.Operations))
+		}
+
+		var failed int
+		for _, op := range result.Operations {
+			if op.Error != "" {
+				failed++
+			}
+		}
+		if failed != 1 {
+			t.Errorf("Expected the preview to report one conflict, got %d", failed)
+		}
+	})
+
+	t.Run("real run", func(t *testing.T) {
+		tmpDir := newTree(t)
+
+		result, err := Organize(OrganizeOptions{
+			Source:    tmpDir,
+			By:        "type",
+			DryRun:    false,
+			Overwrite: true,
+		}, progress.Nop{})
+		if err != nil {
+			t.Fatalf("Organize failed: %v", err)
+		}
+
+		var failed int
+		for _, op := range result.Operations {
+			if op.Error != "" {
+				failed++
+			}
+		}
+		if failed != 1 {
+			t.Errorf("Expected one of the two files to fail, got %d failures", failed)
+		}
+
+		// The file that was moved must still be there.
+		target := filepath.Join(tmpDir, "documents", "a.txt")
+		content, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("Expected the moved file to exist: %v", err)
+		}
+		if string(content) != "a.txt" {
+			t.Errorf("Expected the first file to survive, got %q", string(content))
+		}
+	})
+}
+
+func TestOrganizeUnsupportedGrouping(t *testing.T) {
+	_, err := Organize(OrganizeOptions{Source: t.TempDir(), By: "colour"}, progress.Nop{})
+	if err == nil {
+		t.Error("Expected an error for an unsupported grouping")
 	}
 }

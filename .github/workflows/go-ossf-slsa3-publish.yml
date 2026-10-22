@@ -57,19 +57,91 @@ jobs:
     needs: [args, create-release]
     strategy:
       matrix:
-        os:
-          - linux
-          - windows
-          # - darwin
-        arch:
-          - amd64
-          # - arm64
+        # The graphical interface is only built for Windows here. Gio uses
+        # Direct3D on Windows, so the build needs no system libraries. The
+        # Linux build of the interface needs cgo and the X11, Wayland and EGL
+        # development packages, which the hermetic builder does not provide.
+        # It is built by the gui-linux job below.
+        include:
+          - os: linux
+            arch: amd64
+            suffix: ""
+          - os: windows
+            arch: amd64
+            suffix: ""
+          - os: windows
+            arch: amd64
+            suffix: "-gui"
+          # - os: darwin
+          #   arch: amd64
+          #   suffix: ""
     uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     with:
       go-version: 1.24
       evaluated-envs: "COMMIT_DATE:${{needs.args.outputs.commit-date}}, COMMIT:${{needs.args.outputs.commit}}, VERSION:${{needs.args.outputs.version}}, TREE_STATE:${{needs.args.outputs.tree-state}}"
-      config-file: .slsa-goreleaser/${{matrix.os}}-${{matrix.arch}}.yml
+      config-file: .slsa-goreleaser/${{matrix.os}}-${{matrix.arch}}${{matrix.suffix}}.yml
       upload-tag-name: ${{ needs.args.outputs.tag }}
       # =============================================================================================================
       #     Optional: For more options, see https://github.com/slsa-framework/slsa-github-generator#golang-projects
       # =============================================================================================================
+
+  gui-linux:
+    name: Build the Linux graphical interface
+    permissions:
+      contents: write # To upload release assets.
+      id-token: write # To sign the attestation.
+      attestations: write # To attach the attestation.
+      actions: read # To read workflow path.
+    needs: [args, create-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      # Gio needs the windowing and the graphics libraries of the platform.
+      # On Linux they are pulled in through cgo.
+      - name: Install the graphical dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc pkg-config \
+            libegl-dev libgles-dev \
+            libvulkan-dev \
+            libwayland-dev \
+            libx11-dev libx11-xcb-dev libxcursor-dev libxfixes-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev
+
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+          COMMIT_DATE: ${{ needs.args.outputs.commit-date }}
+          COMMIT: ${{ needs.args.outputs.commit }}
+          VERSION: ${{ needs.args.outputs.version }}
+          TREE_STATE: ${{ needs.args.outputs.tree-state }}
+        run: |
+          go build -tags gui \
+            -ldflags "-X 'amurru/filetools/internal/version.Version=$VERSION' \
+                      -X 'amurru/filetools/internal/version.Commit=$COMMIT' \
+                      -X 'amurru/filetools/internal/version.CommitDate=$COMMIT_DATE' \
+                      -X 'amurru/filetools/internal/version.TreeState=$TREE_STATE'" \
+            -o filetools-gui-linux-amd64 .
+
+      - name: Attest the build
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: filetools-gui-linux-amd64
+
+      - name: Upload the build to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.args.outputs.tag }}
+        run: |
+          gh release upload "$TAG" filetools-gui-linux-amd64 --clobber

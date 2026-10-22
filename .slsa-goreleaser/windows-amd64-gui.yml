@@ -1,0 +1,22 @@
+# Version for this file.
+version: 1
+
+goos: windows
+goarch: amd64
+
+# Binary output name.
+# {{ .Os }} will be replaced by goos field in the config file.
+# {{ .Arch }} will be replaced by goarch field in the config file.
+binary: filetools-gui-windows-{{ .Arch }}.exe
+
+# The graphical interface is guarded by the "gui" build tag. Gio uses
+# Direct3D on Windows, so the build needs no system libraries.
+flags:
+  - -tags=gui
+
+# (Optional) ldflags generated dynamically in the workflow, and set as the `evaluated-envs` input variables in the workflow.
+ldflags:
+  - "-X amurru/filetools/internal/version.Version={{ .Env.VERSION }}"
+  - "-X amurru/filetools/internal/version.Commit={{ .Env.COMMIT }}"
+  - "-X amurru/filetools/internal/version.CommitDate={{ .Env.COMMIT_DATE }}"
+  - "-X amurru/filetools/internal/version.TreeState={{ .Env.TREE_STATE }}"

@@ -1,6 +1,7 @@
 package output
 
 import (
+	"amurru/filetools/internal/report"
 	"encoding/xml"
 	"io"
 )
@@ -9,7 +10,7 @@ import (
 type XMLFormatter struct{}
 
 // FormatDuplicates formats duplicate results as XML
-func (f *XMLFormatter) FormatDuplicates(result *DuplicateResult, writer io.Writer) error {
+func (f *XMLFormatter) FormatDuplicates(result *report.DuplicateResult, writer io.Writer) error {
 	encoder := xml.NewEncoder(writer)
 	encoder.Indent("", "  ")
 
@@ -29,7 +30,7 @@ func (f *XMLFormatter) FormatDuplicates(result *DuplicateResult, writer io.Write
 }
 
 // FormatDirStat formats directory statistics as XML
-func (f *XMLFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) error {
+func (f *XMLFormatter) FormatDirStat(result *report.DirStatResult, writer io.Writer) error {
 	encoder := xml.NewEncoder(writer)
 	encoder.Indent("", "  ")
 
@@ -49,7 +50,7 @@ func (f *XMLFormatter) FormatDirStat(result *DirStatResult, writer io.Writer) er
 }
 
 // FormatRename formats rename results as XML
-func (f *XMLFormatter) FormatRename(result *RenameResult, writer io.Writer) error {
+func (f *XMLFormatter) FormatRename(result *report.RenameResult, writer io.Writer) error {
 	encoder := xml.NewEncoder(writer)
 	encoder.Indent("", "  ")
 
@@ -69,7 +70,7 @@ func (f *XMLFormatter) FormatRename(result *RenameResult, writer io.Writer) erro
 }
 
 // FormatOrganize formats organize results as XML
-func (f *XMLFormatter) FormatOrganize(result *OrganizeResult, writer io.Writer) error {
+func (f *XMLFormatter) FormatOrganize(result *report.OrganizeResult, writer io.Writer) error {
 	encoder := xml.NewEncoder(writer)
 	encoder.Indent("", "  ")
 
@@ -89,7 +90,7 @@ func (f *XMLFormatter) FormatOrganize(result *OrganizeResult, writer io.Writer) 
 }
 
 // FormatSizeReport formats a size analysis as XML
-func (f *XMLFormatter) FormatSizeReport(result *SizeReportResult, writer io.Writer) error {
+func (f *XMLFormatter) FormatSizeReport(result *report.SizeReportResult, writer io.Writer) error {
 	encoder := xml.NewEncoder(writer)
 	encoder.Indent("", "  ")
 
