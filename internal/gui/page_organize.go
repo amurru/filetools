@@ -362,8 +362,29 @@ func (p *organizePage) confirmMessage() string {
 func (p *organizePage) applyWith(opts scan.OrganizeOptions) {
 	p.applied = false
 	p.applyJob.Run(func(pr progress.Indicator) (any, error) {
-		return scan.Organize(opts, pr)
+		result, err := scan.Organize(opts, pr)
+		if err == nil {
+			err = failedMoves(result)
+		}
+		return result, err
 	})
+}
+
+// failedMoves reports the operations of an apply that did not complete.
+func failedMoves(result *report.OrganizeResult) error {
+	if result == nil {
+		return nil
+	}
+	failed := 0
+	for _, op := range result.Operations {
+		if op.Error != "" {
+			failed++
+		}
+	}
+	if failed == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d of %d files could not be moved", failed, len(result.Operations))
 }
 
 // apply performs the moves for real.

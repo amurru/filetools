@@ -286,7 +286,18 @@ func (p *renamePage) confirmMessage() string {
 func (p *renamePage) applyWith(opts scan.RenameOptions) {
 	p.applied = false
 	p.applyJob.Run(func(pr progress.Indicator) (any, error) {
-		return scan.Rename(opts, pr)
+		result, err := scan.Rename(opts, pr)
+		if err != nil {
+			return nil, err
+		}
+		if result != nil {
+			for _, op := range result.Operations {
+				if op.Error != "" {
+					return result, fmt.Errorf("rename failed: %s", op.Error)
+				}
+			}
+		}
+		return result, nil
 	})
 }
 
