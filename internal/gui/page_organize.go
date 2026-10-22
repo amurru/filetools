@@ -43,6 +43,11 @@ type organizePage struct {
 	// are changing.
 	debouncer previewDebouncer
 
+	// previewKey holds the inputs the current preview was computed from.
+	// Apply is only allowed when the preview matches the current inputs,
+	// so the confirmation cannot describe moves the job will not perform.
+	previewKey string
+
 	// applied reports whether the outcome of the last apply was already
 	// taken into account.
 	applied bool
@@ -223,6 +228,12 @@ func (p *organizePage) canApply() bool {
 		return false
 	}
 
+	// The preview must match the current inputs, otherwise the
+	// confirmation would describe moves the job will not perform.
+	if p.previewKey != p.previewInputs() {
+		return false
+	}
+
 	result, _ := p.previewJob.output().(*report.OrganizeResult)
 	return result != nil && len(result.Operations) > 0
 }
@@ -289,6 +300,7 @@ func (p *organizePage) refreshPreview(gtx layout.Context) {
 	if _, _, _, _, done, _ := p.applyJob.state(); done && !p.applied {
 		p.applied = true
 		p.debouncer.invalidate()
+		p.previewKey = ""
 	}
 
 	// Without a directory there is nothing to preview.
@@ -302,16 +314,22 @@ func (p *organizePage) refreshPreview(gtx layout.Context) {
 		return
 	}
 
-	key := fmt.Sprintf("%s\x00%s\x00%s\x00%t\x00%t",
-		p.source.path(), p.dest.path(), p.criteria.Value, p.hidden.Value, p.overwrite.Value)
+	key := p.previewInputs()
 	if !p.debouncer.refresh(gtx, key) {
 		return
 	}
 
 	opts := p.options(true)
+	p.previewKey = key
 	p.previewJob.Run(func(pr progress.Indicator) (any, error) {
 		return scan.Organize(opts, pr)
 	})
+}
+
+// previewInputs identifies the inputs the preview was computed from.
+func (p *organizePage) previewInputs() string {
+	return fmt.Sprintf("%s\x00%s\x00%s\x00%t\x00%t",
+		p.source.path(), p.dest.path(), p.criteria.Value, p.hidden.Value, p.overwrite.Value)
 }
 
 // options builds the options of a run.

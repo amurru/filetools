@@ -33,6 +33,11 @@ type renamePage struct {
 	// are changing.
 	debouncer previewDebouncer
 
+	// previewKey holds the inputs the current preview was computed from.
+	// Apply is only allowed when the preview matches the current inputs,
+	// so the confirmation cannot describe renames the job will not perform.
+	previewKey string
+
 	// applied reports whether the outcome of the last apply was already
 	// taken into account.
 	applied bool
@@ -167,6 +172,12 @@ func (p *renamePage) canApply() bool {
 		return false
 	}
 
+	// The preview must match the current inputs, otherwise the
+	// confirmation would describe renames the job will not perform.
+	if p.previewKey != p.previewInputs() {
+		return false
+	}
+
 	result, _ := p.previewJob.output().(*report.RenameResult)
 	return result != nil && len(result.Operations) > 0
 }
@@ -216,6 +227,7 @@ func (p *renamePage) refreshPreview(gtx layout.Context) {
 	if _, _, _, _, done, _ := p.applyJob.state(); done && !p.applied {
 		p.applied = true
 		p.debouncer.invalidate()
+		p.previewKey = ""
 	}
 
 	// Without a directory there is nothing to preview.
@@ -229,15 +241,21 @@ func (p *renamePage) refreshPreview(gtx layout.Context) {
 		return
 	}
 
-	key := p.dir.path() + "\x00" + p.match.value() + "\x00" + p.sed.value()
+	key := p.previewInputs()
 	if !p.debouncer.refresh(gtx, key) {
 		return
 	}
 
 	opts := p.options(true)
+	p.previewKey = key
 	p.previewJob.Run(func(pr progress.Indicator) (any, error) {
 		return scan.Rename(opts, pr)
 	})
+}
+
+// previewInputs identifies the inputs the preview was computed from.
+func (p *renamePage) previewInputs() string {
+	return p.dir.path() + "\x00" + p.match.value() + "\x00" + p.sed.value()
 }
 
 // options builds the options of a run.
