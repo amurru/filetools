@@ -128,10 +128,10 @@ jobs:
           TREE_STATE: ${{ needs.args.outputs.tree-state }}
         run: |
           go build -tags gui \
-            -ldflags "-X 'amurru/filetools/internal/version.Version=$VERSION' \
-                      -X 'amurru/filetools/internal/version.Commit=$COMMIT' \
-                      -X 'amurru/filetools/internal/version.CommitDate=$COMMIT_DATE' \
-                      -X 'amurru/filetools/internal/version.TreeState=$TREE_STATE'" \
+            -ldflags "-X 'github.com/amurru/filetools/internal/version.Version=$VERSION' \
+                      -X 'github.com/amurru/filetools/internal/version.Commit=$COMMIT' \
+                      -X 'github.com/amurru/filetools/internal/version.CommitDate=$COMMIT_DATE' \
+                      -X 'github.com/amurru/filetools/internal/version.TreeState=$TREE_STATE'" \
             -o filetools-gui-linux-amd64 .
 
       - name: Attest the build

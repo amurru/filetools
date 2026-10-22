@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"amurru/filetools/internal/progress"
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/report"
 )
 
 func TestAnalyzeDirStat(t *testing.T) {

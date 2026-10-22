@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"amurru/filetools/internal/output"
-	"amurru/filetools/internal/report"
-	"amurru/filetools/internal/scan"
+	"github.com/amurru/filetools/internal/output"
+	"github.com/amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/scan"
 	"github.com/spf13/cobra"
 )
 
@@ -49,8 +49,8 @@ func init() {
 	renameCmd.Flags().StringVar(&matchPattern, "match", "", "File pattern to match (glob, required)")
 	renameCmd.Flags().StringVar(&sedExpression, "sed", "", "Sed-style replacement expression (e.g., s/old/new/g, required)")
 	renameCmd.Flags().BoolVar(&forceOverwrite, "force", false, "Perform actual renames (disables dry-run)")
-	renameCmd.MarkFlagRequired("match")
-	renameCmd.MarkFlagRequired("sed")
+	_ = renameCmd.MarkFlagRequired("match")
+	_ = renameCmd.MarkFlagRequired("sed")
 }
 
 // runRename executes the rename command

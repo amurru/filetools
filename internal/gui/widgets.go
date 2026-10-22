@@ -24,7 +24,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
-	"amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/progress"
 )
 
 // labelWidth is the width of the labels of the form rows.

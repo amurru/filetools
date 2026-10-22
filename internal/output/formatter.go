@@ -8,7 +8,7 @@ package output
 import (
 	"io"
 
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // OutputFormatter defines the interface for different output formats

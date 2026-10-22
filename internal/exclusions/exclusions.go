@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // ExclusionMatcher defines the interface for matching exclusions

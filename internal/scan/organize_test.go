@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"amurru/filetools/internal/progress"
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // createOrganizeTree creates a directory with one file per extension and returns its path

@@ -1,12 +1,13 @@
 package output
 
 import (
-	"amurru/filetools/internal/report"
 	"encoding/xml"
+	"github.com/amurru/filetools/internal/report"
 	"io"
 )
 
 // XMLFormatter implements the OutputFormatter interface for XML output
+// XMLFormatter renders a report as XML.
 type XMLFormatter struct{}
 
 // FormatDuplicates formats duplicate results as XML

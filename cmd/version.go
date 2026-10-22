@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"amurru/filetools/internal/version"
+	"github.com/amurru/filetools/internal/version"
 	"github.com/spf13/cobra"
 )
 

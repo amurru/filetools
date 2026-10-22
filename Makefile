@@ -1,6 +1,6 @@
 .PHONY: build build-gui test test-race vet fmt clean run
 
-MODULE := amurru/filetools
+MODULE := github.com/amurru/filetools
 BINARY := filetools
 GUI_BINARY := filetools-gui
 COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "none")

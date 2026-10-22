@@ -1,11 +1,11 @@
 package output
 
 import (
-	"amurru/filetools/internal/report"
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"github.com/amurru/filetools/internal/report"
 	"strings"
 	"testing"
 )

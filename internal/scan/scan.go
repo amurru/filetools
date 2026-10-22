@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"os"
 
-	"amurru/filetools/internal/exclusions"
+	"github.com/amurru/filetools/internal/exclusions"
 )
 
 // matchers holds the parsed exclusion patterns of a single run.

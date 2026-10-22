@@ -2,6 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.24.5-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Release](https://img.shields.io/github/v/release/amurru/filetools)](https://github.com/amurru/filetools/releases)
 [![SLSA Go releaser](https://github.com/amurru/filetools/actions/workflows/go-ossf-slsa3-publish.yml/badge.svg)](https://github.com/amurru/filetools/actions/workflows/go-ossf-slsa3-publish.yml)
 
 A collection of file management and analysis tools, built with Go. Every tool
@@ -30,10 +31,27 @@ is available both as a command and through a graphical interface.
 
 ### Planned Tools
 
-- File content search
-- Disk usage by owner
+See [ROADMAP.md](ROADMAP.md) for the full list of planned and candidate
+features, including file content search and disk usage by owner.
 
 ## Installation
+
+### Quick install (latest release)
+
+Linux / macOS (amd64):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/amurru/filetools/main/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+iex (irm https://raw.githubusercontent.com/amurru/filetools/main/install.ps1)
+```
+
+The scripts download the latest release binary from GitHub and place it on
+your `PATH`. Set `INSTALL_DIR` to choose a different location.
 
 ### Prerequisites
 

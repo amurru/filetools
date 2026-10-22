@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"amurru/filetools/internal/gui"
+	"github.com/amurru/filetools/internal/gui"
 	"github.com/spf13/cobra"
 )
 

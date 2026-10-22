@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"amurru/filetools/internal/output"
-	"amurru/filetools/internal/progress"
-	"amurru/filetools/internal/report"
-	"amurru/filetools/internal/version"
+	"github.com/amurru/filetools/internal/output"
+	"github.com/amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/version"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -44,6 +44,8 @@ Filetools offers a range of commands to help with file operations such as search
 	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
+// Execute runs the filetools command line interface.
+//
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {

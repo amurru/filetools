@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"amurru/filetools/internal/exclusions"
-	"amurru/filetools/internal/progress"
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/exclusions"
+	"github.com/amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // DirStatOptions configures a directory statistics analysis.

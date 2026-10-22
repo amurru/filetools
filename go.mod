@@ -1,4 +1,4 @@
-module amurru/filetools
+module github.com/amurru/filetools
 
 go 1.24.5
 

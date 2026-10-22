@@ -1,8 +1,8 @@
 package output
 
 import (
-	"amurru/filetools/internal/report"
 	"fmt"
+	"github.com/amurru/filetools/internal/report"
 	"html"
 	"io"
 	"sort"
@@ -10,6 +10,7 @@ import (
 )
 
 // HTMLFormatter implements the OutputFormatter interface for HTML output
+// HTMLFormatter renders a report as HTML.
 type HTMLFormatter struct{}
 
 // FormatDuplicates formats duplicate results as HTML

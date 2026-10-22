@@ -13,7 +13,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
-	"amurru/filetools/internal/version"
+	"github.com/amurru/filetools/internal/version"
 )
 
 // sidebarWidth is the width of the navigation sidebar.

@@ -10,7 +10,7 @@ import (
 	"gioui.org/app"
 	"gioui.org/widget"
 
-	"amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/progress"
 )
 
 // paintInterval is the minimum delay between two redraw requests caused by

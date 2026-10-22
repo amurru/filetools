@@ -16,9 +16,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"amurru/filetools/internal/exclusions"
-	"amurru/filetools/internal/progress"
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/exclusions"
+	"github.com/amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // partialHashSize is the number of bytes read from the beginning of a file

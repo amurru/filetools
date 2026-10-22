@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/progress"
 )
 
 // cancelledIndicator reports cancellation immediately. The engines must

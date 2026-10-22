@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/progress"
 )
 
 func TestSizeBucketLabel(t *testing.T) {

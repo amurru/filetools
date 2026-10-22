@@ -14,7 +14,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/unit"
 
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // render lays out the given content offscreen and returns the rendered

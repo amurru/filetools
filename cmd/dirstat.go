@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"amurru/filetools/internal/output"
-	"amurru/filetools/internal/report"
-	"amurru/filetools/internal/scan"
+	"github.com/amurru/filetools/internal/output"
+	"github.com/amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/scan"
 	"github.com/spf13/cobra"
 )
 

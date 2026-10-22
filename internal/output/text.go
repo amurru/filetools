@@ -1,8 +1,8 @@
 package output
 
 import (
-	"amurru/filetools/internal/report"
 	"fmt"
+	"github.com/amurru/filetools/internal/report"
 	"io"
 	"path/filepath"
 	"sort"
@@ -10,6 +10,7 @@ import (
 )
 
 // TextFormatter implements the OutputFormatter interface for plain text output
+// TextFormatter renders a report as plain text.
 type TextFormatter struct{}
 
 // FormatDuplicates formats duplicate results as plain text (preserves current behavior)

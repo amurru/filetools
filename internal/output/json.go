@@ -1,12 +1,13 @@
 package output
 
 import (
-	"amurru/filetools/internal/report"
 	"encoding/json"
+	"github.com/amurru/filetools/internal/report"
 	"io"
 )
 
 // JSONFormatter implements the OutputFormatter interface for JSON output
+// JSONFormatter renders a report as JSON.
 type JSONFormatter struct{}
 
 // FormatDuplicates formats duplicate results as JSON

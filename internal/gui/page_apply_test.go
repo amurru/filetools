@@ -5,7 +5,7 @@ package gui
 import (
 	"testing"
 
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // TestOrganizeCanApplyRequiresCurrentPreview verifies that Apply is only

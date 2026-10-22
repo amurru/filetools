@@ -11,9 +11,9 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
-	"amurru/filetools/internal/progress"
-	"amurru/filetools/internal/report"
-	"amurru/filetools/internal/scan"
+	"github.com/amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/scan"
 )
 
 // renamePage renames the files matching a pattern.

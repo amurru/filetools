@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"amurru/filetools/internal/exclusions"
-	"amurru/filetools/internal/progress"
-	"amurru/filetools/internal/report"
+	"github.com/amurru/filetools/internal/exclusions"
+	"github.com/amurru/filetools/internal/progress"
+	"github.com/amurru/filetools/internal/report"
 )
 
 // sizeRange describes a bucket of files grouped by size
