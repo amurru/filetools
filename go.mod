@@ -4,7 +4,7 @@ go 1.24.5
 
 require (
 	gioui.org v0.10.3
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	golang.org/x/term v0.38.0
 )
 
