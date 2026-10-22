@@ -456,14 +456,19 @@ func layoutBar(gtx layout.Context, th *theme, entry barChartEntry) layout.Dimens
 	height := gtx.Metric.Dp(barHeight)
 	width := gtx.Constraints.Max.X
 
-	paintBackgroundRect(gtx, panelBackground(th), barHeight, image.Pt(width, height))
+	trackRadius := barHeight / 2
+	paintBackgroundRect(gtx, th.palette.SurfaceAlt, trackRadius, image.Pt(width, height))
 
 	fill := int(float32(width) * float32(entry.percent) / 100)
 	if fill > width {
 		fill = width
 	}
 	if fill > 0 {
-		paintBackgroundRect(gtx, th.Palette.ContrastBg, barHeight, image.Pt(fill, height))
+		fillRadius := trackRadius
+		if fill < height {
+			fillRadius = unit.Dp(float32(fill) / 2 / gtx.Metric.PxPerDp)
+		}
+		paintBackgroundRect(gtx, th.Palette.ContrastBg, fillRadius, image.Pt(fill, height))
 	}
 
 	return layout.Dimensions{Size: image.Pt(width, height)}
