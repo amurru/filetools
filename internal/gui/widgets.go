@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 
+	"gioui.org/io/event"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -740,6 +742,11 @@ func (c *confirmDialog) ask(message string, onConfirm func()) {
 }
 
 // layout draws the dialog as an overlay.
+//
+// The dim background registers a pointer handler without pass-through, so
+// clicks outside the dialog do not reach the page behind it. The apply
+// itself must still use the options captured when the dialog opened; see
+// page_organize and page_rename.
 func (c *confirmDialog) layout(gtx layout.Context, th *theme) layout.Dimensions {
 	if !c.visible {
 		return layout.Dimensions{}
@@ -747,6 +754,18 @@ func (c *confirmDialog) layout(gtx layout.Context, th *theme) layout.Dimensions 
 
 	return layout.Stack{}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+			area := clip.Rect(image.Rectangle{Max: gtx.Constraints.Max}).Push(gtx.Ops)
+			event.Op(gtx.Ops, c)
+			area.Pop()
+			for {
+				_, ok := gtx.Event(pointer.Filter{
+					Target: c,
+					Kinds:  pointer.Press | pointer.Release | pointer.Drag | pointer.Scroll | pointer.Move | pointer.Enter | pointer.Leave,
+				})
+				if !ok {
+					break
+				}
+			}
 			paintBackground(gtx, color.NRGBA{A: 0x99, R: 0, G: 0, B: 0}, 0)
 			return layout.Dimensions{Size: gtx.Constraints.Min}
 		}),

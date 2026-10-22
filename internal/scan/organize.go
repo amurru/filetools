@@ -237,17 +237,15 @@ func organizeFiles(opts OrganizeOptions, destDir string, m matchers, p progress.
 		}
 
 		// Check if the target is already taken by another file of this run
-		// or if it already exists on disk.
+		// or if it already exists on disk. When overwriting, os.Rename
+		// replaces the target directly, so the existing file must not be
+		// removed beforehand: a failed move would otherwise lose it.
 		targetKey := filepath.Clean(newPath)
 		if previous, taken := plannedTargets[targetKey]; taken {
 			op.Error = fmt.Sprintf("target already used by %s", previous)
 		} else if _, err := os.Stat(newPath); err == nil {
 			if !opts.Overwrite {
 				op.Error = "target file already exists"
-			} else if !opts.DryRun {
-				if err := os.Remove(newPath); err != nil {
-					op.Error = fmt.Sprintf("cannot replace target: %v", err)
-				}
 			}
 		} else if !os.IsNotExist(err) {
 			op.Error = fmt.Sprintf("cannot check target: %v", err)

@@ -212,9 +212,13 @@ func (p *organizePage) layoutActions(gtx layout.Context, th *theme) layout.Dimen
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			// Without a preview there is nothing to apply, so the button
-			// must not open the confirmation dialog.
+			// must not open the confirmation dialog. The options are
+			// captured here so Apply cannot use inputs edited while the
+			// dialog is open.
 			if p.applyBtn.Clicked(gtx) && p.canApply() {
-				p.confirm.ask(p.confirmMessage(), p.apply)
+				opts := p.options(false)
+				msg := p.confirmMessage()
+				p.confirm.ask(msg, func() { p.applyWith(opts) })
 			}
 			button := material.Button(th.Theme, &p.applyBtn, "Apply moves")
 			return button.Layout(gtx)
@@ -353,11 +357,16 @@ func (p *organizePage) confirmMessage() string {
 	return fmt.Sprintf("%d files will be moved into their category folders.", len(result.Operations))
 }
 
-// apply performs the moves for real.
-func (p *organizePage) apply() {
-	opts := p.options(false)
+// apply performs the moves for real with the options captured when the
+// dialog opened.
+func (p *organizePage) applyWith(opts scan.OrganizeOptions) {
 	p.applied = false
 	p.applyJob.Run(func(pr progress.Indicator) (any, error) {
 		return scan.Organize(opts, pr)
 	})
+}
+
+// apply performs the moves for real.
+func (p *organizePage) apply() {
+	p.applyWith(p.options(false))
 }

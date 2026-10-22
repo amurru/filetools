@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"amurru/filetools/internal/exclusions"
 	"amurru/filetools/internal/progress"
@@ -180,6 +181,10 @@ func hashFilesConcurrently(files []string, algorithm string, p progress.Indicato
 	jobs := make(chan hashJob, len(files))
 	results := make(chan hashResult, len(files))
 
+	// stopped is local to this call. Workers of an abandoned call stop
+	// even after a new Run resets the job's shared cancellation flag.
+	var stopped atomic.Bool
+
 	// Start workers
 	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
@@ -188,7 +193,7 @@ func hashFilesConcurrently(files []string, algorithm string, p progress.Indicato
 			defer wg.Done()
 			for job := range jobs {
 				progress.WaitIfPaused(p)
-				if progress.IsCancelled(p) {
+				if stopped.Load() || progress.IsCancelled(p) {
 					continue
 				}
 				sum, err := hash(job.path, algorithm)
@@ -201,6 +206,7 @@ func hashFilesConcurrently(files []string, algorithm string, p progress.Indicato
 	for _, file := range files {
 		progress.WaitIfPaused(p)
 		if progress.IsCancelled(p) {
+			stopped.Store(true)
 			break
 		}
 		jobs <- hashJob{path: file}
@@ -221,6 +227,7 @@ func hashFilesConcurrently(files []string, algorithm string, p progress.Indicato
 		output = append(output, result)
 		p.Increment()
 		if progress.IsCancelled(p) {
+			stopped.Store(true)
 			break
 		}
 	}
