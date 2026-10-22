@@ -181,7 +181,7 @@ func (a *App) layoutNav(gtx layout.Context) layout.Dimensions {
 	for i := range a.items {
 		item := &a.items[i]
 		children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return a.layoutNavItem(gtx, item, i == a.active)
+			return a.layoutNavItem(gtx, item, i)
 		}))
 	}
 
@@ -189,20 +189,40 @@ func (a *App) layoutNav(gtx layout.Context) layout.Dimensions {
 }
 
 // layoutNavItem draws one navigation entry.
-func (a *App) layoutNavItem(gtx layout.Context, item *navItem, active bool) layout.Dimensions {
+//
+// The click has to be read before the widget is laid out, because laying out
+// a clickable consumes the pending click event.
+func (a *App) layoutNavItem(gtx layout.Context, item *navItem, index int) layout.Dimensions {
+	if item.click.Clicked(gtx) {
+		a.active = index
+	}
+	active := a.active == index
+
 	return material.Clickable(gtx, &item.click, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 7, Bottom: 7, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			if active {
+		return layout.Stack{}.Layout(gtx,
+			// The background of the active entry covers the whole row.
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				if !active {
+					return layout.Dimensions{}
+				}
 				paintBackground(gtx, a.palette.SurfaceAlt, cornerRadius)
-			}
+				return layout.Dimensions{Size: gtx.Constraints.Min}
+			}),
+			layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+				return layout.Inset{Top: 7, Bottom: 7, Left: 10, Right: 10}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					// The label fills the width of the entry, so that the
+					// background of the active entry covers the row.
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
 
-			label := material.Body2(a.theme.Theme, item.title)
-			if active {
-				label.Color = a.palette.Accent
-			}
+					label := material.Body2(a.theme.Theme, item.title)
+					if active {
+						label.Color = a.palette.Accent
+					}
 
-			return label.Layout(gtx)
-		})
+					return label.Layout(gtx)
+				})
+			}),
+		)
 	})
 }
 
@@ -238,13 +258,6 @@ func (a *App) layoutFooter(gtx layout.Context) layout.Dimensions {
 
 // layoutMain draws the active page.
 func (a *App) layoutMain(gtx layout.Context) layout.Dimensions {
-	for i := range a.items {
-		item := &a.items[i]
-		if item.click.Clicked(gtx) {
-			a.active = i
-		}
-	}
-
 	return layout.UniformInset(unit.Dp(20)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		return a.items[a.active].page.layout(gtx, a.theme)
 	})

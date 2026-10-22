@@ -4,6 +4,7 @@ package gui
 
 import (
 	"image"
+	"image/color"
 	"image/png"
 	"os"
 	"testing"
@@ -152,6 +153,39 @@ func TestRenderWidgets(t *testing.T) {
 			t.Error("Expected the tiles to draw something")
 		}
 	})
+}
+
+func TestRenderNavHighlight(t *testing.T) {
+	img := render(t, 1180, 780, func(gtx layout.Context, th *theme) {
+		a := newApp(nil)
+		a.layout(gtx)
+	})
+
+	// The active entry is highlighted with the alternative surface color.
+	highlight := color.NRGBAModel.Convert(lightPalette.SurfaceAlt).(color.NRGBA)
+
+	found := false
+	for y := 0; y < 400 && !found; y++ {
+		run := 0
+		for x := 0; x < int(sidebarWidth); x++ {
+			c := color.NRGBAModel.Convert(img.RGBAAt(x, y)).(color.NRGBA)
+			if c != highlight {
+				run = 0
+				continue
+			}
+			run++
+			// The background of the entry covers the whole width of the
+			// navigation.
+			if run >= int(sidebarWidth)/2 {
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		t.Error("Expected the active navigation entry to be highlighted")
+	}
 }
 
 func TestFormatSize(t *testing.T) {
