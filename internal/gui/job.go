@@ -125,6 +125,13 @@ func (j *Job) isRunning() bool {
 	return j.running
 }
 
+// failed reports whether the last run ended with an error.
+func (j *Job) failed() bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.err != nil
+}
+
 // state returns a snapshot of the progress of the job.
 func (j *Job) state() (description string, current, total int64, running, done bool, err error) {
 	j.mu.Lock()

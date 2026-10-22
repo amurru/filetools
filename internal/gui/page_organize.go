@@ -117,7 +117,9 @@ func (p *organizePage) layoutContent(gtx layout.Context, th *theme) layout.Dimen
 
 // layoutStatus draws the progress of the running job.
 func (p *organizePage) layoutStatus(gtx layout.Context, th *theme) layout.Dimensions {
-	if p.applyJob.isRunning() {
+	// The error of a finished apply must stay visible, otherwise the user
+	// never learns that the moves failed.
+	if p.applyJob.isRunning() || p.applyJob.failed() {
 		return layoutProgress(gtx, th, p.applyJob)
 	}
 	return layoutProgress(gtx, th, p.previewJob)
@@ -204,13 +206,25 @@ func (p *organizePage) layoutToggles(gtx layout.Context, th *theme) layout.Dimen
 func (p *organizePage) layoutActions(gtx layout.Context, th *theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.applyBtn.Clicked(gtx) {
+			// Without a preview there is nothing to apply, so the button
+			// must not open the confirmation dialog.
+			if p.applyBtn.Clicked(gtx) && p.canApply() {
 				p.confirm.ask(p.confirmMessage(), p.apply)
 			}
 			button := material.Button(th.Theme, &p.applyBtn, "Apply moves")
 			return button.Layout(gtx)
 		}),
 	)
+}
+
+// canApply reports whether the page has a preview that can be applied.
+func (p *organizePage) canApply() bool {
+	if p.source.path() == "" || p.previewJob.isRunning() {
+		return false
+	}
+
+	result, _ := p.previewJob.output().(*report.OrganizeResult)
+	return result != nil && len(result.Operations) > 0
 }
 
 // layoutResults draws the preview of the planned moves.
@@ -282,8 +296,15 @@ func (p *organizePage) refreshPreview(gtx layout.Context) {
 		return
 	}
 
-	key := p.source.path() + "\x00" + p.dest.path() + "\x00" + p.criteria.Value
-	if !p.debouncer.refresh(gtx, key) || p.previewJob.isRunning() {
+	// A running preview keeps the inputs pending, so that the preview is
+	// recomputed once it ends.
+	if p.previewJob.isRunning() {
+		return
+	}
+
+	key := fmt.Sprintf("%s\x00%s\x00%s\x00%t\x00%t",
+		p.source.path(), p.dest.path(), p.criteria.Value, p.hidden.Value, p.overwrite.Value)
+	if !p.debouncer.refresh(gtx, key) {
 		return
 	}
 
@@ -295,13 +316,8 @@ func (p *organizePage) refreshPreview(gtx layout.Context) {
 
 // options builds the options of a run.
 func (p *organizePage) options(dryRun bool) scan.OrganizeOptions {
-	source := p.source.path()
-	if source == "" {
-		source = "."
-	}
-
 	return scan.OrganizeOptions{
-		Source:        source,
+		Source:        p.source.path(),
 		Dest:          p.dest.path(),
 		By:            p.criteria.Value,
 		DryRun:        dryRun,

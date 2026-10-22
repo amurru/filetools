@@ -5,8 +5,9 @@
 // nothing about the command line interface or the graphical user interface,
 // so both front ends share exactly the same behaviour.
 //
-// The engines are safe to call from a goroutine: they never write to the
-// console and they never mutate their options.
+// The engines are safe to call from a goroutine: they never mutate their
+// options. They report the paths they cannot read through a warning on
+// os.Stderr, so the command line interface shows them to the user.
 package scan
 
 import (

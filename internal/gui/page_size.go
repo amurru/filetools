@@ -39,6 +39,7 @@ type topField struct {
 
 // layout draws the input.
 func (t *topField) layout(gtx layout.Context, th *theme) layout.Dimensions {
+	t.editor.SingleLine = true
 	editor := material.Editor(th.Theme, &t.editor, "10")
 	return editor.Layout(gtx)
 }

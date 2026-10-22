@@ -156,6 +156,7 @@ type textField struct {
 
 // layout draws the input.
 func (t *textField) layout(gtx layout.Context, th *theme, hint string) layout.Dimensions {
+	t.editor.SingleLine = true
 	editor := material.Editor(th.Theme, &t.editor, hint)
 	return editor.Layout(gtx)
 }
@@ -186,6 +187,7 @@ type pathField struct {
 func (p *pathField) layout(gtx layout.Context, th *theme, hint string, onBrowse func()) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			p.editor.SingleLine = true
 			editor := material.Editor(th.Theme, &p.editor, hint)
 			return editor.Layout(gtx)
 		}),
@@ -531,7 +533,19 @@ type dirPicker struct {
 }
 
 // open shows the picker for the given directory.
+//
+// The picker always works with an absolute path, so that the user can walk
+// up from the directory they started in.
 func (d *dirPicker) open(dir string) {
+	if dir == "" {
+		if wd, err := os.Getwd(); err == nil {
+			dir = wd
+		}
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+
 	d.visible = true
 	d.path.hideBrowse = true
 	d.path.setPath(dir)
@@ -626,6 +640,10 @@ func (d *dirPicker) layoutError(gtx layout.Context, th *theme) layout.Dimensions
 
 // layoutDirs lists the subdirectories of the current directory. Clicking an
 // entry navigates into it.
+//
+// The navigation is applied after the list is laid out, because the list
+// keeps using the entries of the old listing while it draws the rest of
+// them.
 func (d *dirPicker) layoutDirs(gtx layout.Context, th *theme) layout.Dimensions {
 	if len(d.dirClicks) != len(d.dirs) {
 		d.dirClicks = make([]widget.Clickable, len(d.dirs))
@@ -633,13 +651,13 @@ func (d *dirPicker) layoutDirs(gtx layout.Context, th *theme) layout.Dimensions 
 
 	list := material.List(th.Theme, &d.list)
 
-	return list.Layout(gtx, len(d.dirs), func(gtx layout.Context, i int) layout.Dimensions {
+	var next string
+	dims := list.Layout(gtx, len(d.dirs), func(gtx layout.Context, i int) layout.Dimensions {
 		name := d.dirs[i]
 		click := &d.dirClicks[i]
 
 		if click.Clicked(gtx) {
-			d.path.setPath(filepath.Join(d.path.path(), name))
-			d.refresh()
+			next = filepath.Join(d.path.path(), name)
 		}
 
 		return layout.Inset{Bottom: unit.Dp(2)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -649,6 +667,13 @@ func (d *dirPicker) layoutDirs(gtx layout.Context, th *theme) layout.Dimensions 
 			})
 		})
 	})
+
+	if next != "" {
+		d.path.setPath(next)
+		d.refresh()
+	}
+
+	return dims
 }
 
 // layoutButtons draws the buttons of the picker.

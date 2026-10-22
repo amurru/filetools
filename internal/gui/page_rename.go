@@ -100,7 +100,9 @@ func (p *renamePage) layoutContent(gtx layout.Context, th *theme) layout.Dimensi
 
 // layoutStatus draws the progress of the running job.
 func (p *renamePage) layoutStatus(gtx layout.Context, th *theme) layout.Dimensions {
-	if p.applyJob.isRunning() {
+	// The error of a finished apply must stay visible, otherwise the user
+	// never learns that the renames failed.
+	if p.applyJob.isRunning() || p.applyJob.failed() {
 		return layoutProgress(gtx, th, p.applyJob)
 	}
 	return layoutProgress(gtx, th, p.previewJob)
@@ -148,13 +150,25 @@ func (p *renamePage) layoutForm(gtx layout.Context, th *theme) layout.Dimensions
 func (p *renamePage) layoutActions(gtx layout.Context, th *theme) layout.Dimensions {
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			if p.applyBtn.Clicked(gtx) {
+			// Without a preview there is nothing to apply, so the button
+			// must not open the confirmation dialog.
+			if p.applyBtn.Clicked(gtx) && p.canApply() {
 				p.confirm.ask(p.confirmMessage(), p.apply)
 			}
 			button := material.Button(th.Theme, &p.applyBtn, "Apply renames")
 			return button.Layout(gtx)
 		}),
 	)
+}
+
+// canApply reports whether the page has a preview that can be applied.
+func (p *renamePage) canApply() bool {
+	if p.dir.path() == "" || p.previewJob.isRunning() {
+		return false
+	}
+
+	result, _ := p.previewJob.output().(*report.RenameResult)
+	return result != nil && len(result.Operations) > 0
 }
 
 // layoutResults draws the preview of the planned renames.
@@ -209,8 +223,14 @@ func (p *renamePage) refreshPreview(gtx layout.Context) {
 		return
 	}
 
+	// A running preview keeps the inputs pending, so that the preview is
+	// recomputed once it ends.
+	if p.previewJob.isRunning() {
+		return
+	}
+
 	key := p.dir.path() + "\x00" + p.match.value() + "\x00" + p.sed.value()
-	if !p.debouncer.refresh(gtx, key) || p.previewJob.isRunning() {
+	if !p.debouncer.refresh(gtx, key) {
 		return
 	}
 
@@ -222,13 +242,8 @@ func (p *renamePage) refreshPreview(gtx layout.Context) {
 
 // options builds the options of a run.
 func (p *renamePage) options(dryRun bool) scan.RenameOptions {
-	dir := p.dir.path()
-	if dir == "" {
-		dir = "."
-	}
-
 	return scan.RenameOptions{
-		Dir:    dir,
+		Dir:    p.dir.path(),
 		Match:  p.match.value(),
 		Sed:    p.sed.value(),
 		DryRun: dryRun,

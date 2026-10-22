@@ -415,6 +415,91 @@ func TestOrganizeSeparateDestination(t *testing.T) {
 	}
 }
 
+// TestOrganizeDuplicateTarget verifies that two files of the same run never
+// move to the same target. The second one would destroy the first one when
+// existing files are replaced.
+func TestOrganizeDuplicateTarget(t *testing.T) {
+	// The tree holds two files with the same name, so both of them end up
+	// at documents/a.txt.
+	newTree := func(t *testing.T) string {
+		t.Helper()
+
+		tmpDir := t.TempDir()
+		subDir := filepath.Join(tmpDir, "sub")
+		if err := os.Mkdir(subDir, 0755); err != nil {
+			t.Fatalf("Failed to create subdirectory: %v", err)
+		}
+		for _, path := range []string{"a.txt", "sub/a.txt"} {
+			if err := os.WriteFile(filepath.Join(tmpDir, path), []byte(path), 0644); err != nil {
+				t.Fatalf("Failed to create %s: %v", path, err)
+			}
+		}
+		return tmpDir
+	}
+
+	t.Run("dry run", func(t *testing.T) {
+		tmpDir := newTree(t)
+
+		result, err := Organize(OrganizeOptions{
+			Source:    tmpDir,
+			By:        "type",
+			DryRun:    true,
+			Overwrite: true,
+		}, progress.Nop{})
+		if err != nil {
+			t.Fatalf("Organize failed: %v", err)
+		}
+
+		if len(result.Operations) != 2 {
+			t.Fatalf("Expected 2 operations, got %d", len(result.Operations))
+		}
+
+		var failed int
+		for _, op := range result.Operations {
+			if op.Error != "" {
+				failed++
+			}
+		}
+		if failed != 1 {
+			t.Errorf("Expected the preview to report one conflict, got %d", failed)
+		}
+	})
+
+	t.Run("real run", func(t *testing.T) {
+		tmpDir := newTree(t)
+
+		result, err := Organize(OrganizeOptions{
+			Source:    tmpDir,
+			By:        "type",
+			DryRun:    false,
+			Overwrite: true,
+		}, progress.Nop{})
+		if err != nil {
+			t.Fatalf("Organize failed: %v", err)
+		}
+
+		var failed int
+		for _, op := range result.Operations {
+			if op.Error != "" {
+				failed++
+			}
+		}
+		if failed != 1 {
+			t.Errorf("Expected one of the two files to fail, got %d failures", failed)
+		}
+
+		// The file that was moved must still be there.
+		target := filepath.Join(tmpDir, "documents", "a.txt")
+		content, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("Expected the moved file to exist: %v", err)
+		}
+		if string(content) != "a.txt" {
+			t.Errorf("Expected the first file to survive, got %q", string(content))
+		}
+	})
+}
+
 func TestOrganizeUnsupportedGrouping(t *testing.T) {
 	_, err := Organize(OrganizeOptions{Source: t.TempDir(), By: "colour"}, progress.Nop{})
 	if err == nil {

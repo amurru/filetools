@@ -153,6 +153,12 @@ func organizeFiles(opts OrganizeOptions, destDir string, m matchers, p progress.
 
 	categoryStats := make(map[string]*report.OrganizeCategory)
 
+	// plannedTargets holds the targets that another file of this run already
+	// moves to. Two files of different directories can share a name, and
+	// they would end up at the same target, where the second one would
+	// destroy the first.
+	plannedTargets := make(map[string]string)
+
 	p.Start(-1, "Organizing files")
 
 	err := filepath.WalkDir(opts.Source, func(path string, d fs.DirEntry, err error) error {
@@ -226,8 +232,12 @@ func organizeFiles(opts OrganizeOptions, destDir string, m matchers, p progress.
 			Size:     info.Size(),
 		}
 
-		// Check if the target already exists
-		if _, err := os.Stat(newPath); err == nil {
+		// Check if the target is already taken by another file of this run
+		// or if it already exists on disk.
+		targetKey := filepath.Clean(newPath)
+		if previous, taken := plannedTargets[targetKey]; taken {
+			op.Error = fmt.Sprintf("target already used by %s", previous)
+		} else if _, err := os.Stat(newPath); err == nil {
 			if !opts.Overwrite {
 				op.Error = "target file already exists"
 			} else if !opts.DryRun {
@@ -246,6 +256,11 @@ func organizeFiles(opts OrganizeOptions, destDir string, m matchers, p progress.
 			} else if err := os.Rename(path, newPath); err != nil {
 				op.Error = fmt.Sprintf("move failed: %v", err)
 			}
+		}
+
+		// The target is taken, whether the file was moved or only planned.
+		if op.Error == "" {
+			plannedTargets[targetKey] = relPath
 		}
 
 		operations = append(operations, op)

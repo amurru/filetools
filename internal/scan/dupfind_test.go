@@ -90,6 +90,33 @@ func TestFindDuplicatesWithExclusions(t *testing.T) {
 	}
 }
 
+// TestFindDuplicatesDoesNotExcludeTheRoot verifies that a directory pattern
+// that matches the root of the scan does not prune the whole tree.
+func TestFindDuplicatesDoesNotExcludeTheRoot(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	content := "duplicate content"
+	for _, name := range []string{"file1.txt", "file2.txt"} {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte(content), 0644); err != nil {
+			t.Fatalf("Failed to create %s: %v", name, err)
+		}
+	}
+
+	// The pattern matches the root directory, which must still be scanned.
+	result, err := FindDuplicates(DuplicateOptions{
+		Dir:        tmpDir,
+		Algorithm:  "md5",
+		ExcludeDir: ".*",
+	}, progress.Nop{})
+	if err != nil {
+		t.Fatalf("FindDuplicates failed: %v", err)
+	}
+
+	if !result.Found {
+		t.Error("Expected the duplicates to be found")
+	}
+}
+
 func TestParseSize(t *testing.T) {
 	tests := []struct {
 		input    string

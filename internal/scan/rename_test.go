@@ -19,6 +19,8 @@ func TestParseSedExpression(t *testing.T) {
 		{"s/old/new/", "old", "new", false, false},
 		{"s/old/new/g", "old", "new", true, false},
 		{"s/(.+)/prefix_$1/", "(.+)", "prefix_$1", false, false},
+		{"s/_old//", "_old", "", false, false},
+		{"s/_old//g", "_old", "", true, false},
 		{"invalid", "", "", false, true},
 		{"s/old/", "", "", false, true},
 	}

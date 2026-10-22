@@ -251,7 +251,13 @@ func findDuplicates(opts DuplicateOptions, p progress.Indicator) (map[string][]s
 
 	err := filepath.WalkDir(opts.Dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			fmt.Fprintf(os.Stderr, "Warning: could not access %s: %v\n", path, err)
+			return nil
+		}
+
+		// Skip the root directory itself
+		if path == opts.Dir {
+			return nil
 		}
 
 		// Get relative path for exclusion checking

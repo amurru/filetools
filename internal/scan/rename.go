@@ -67,7 +67,9 @@ func ParseSedExpression(expr string) (*regexp.Regexp, string, bool, error) {
 	}
 
 	parts := strings.Split(expr[2:], "/")
-	if len(parts) < 2 || parts[1] == "" {
+	// "s/old/" has no replacement section, but "s/old//" replaces the
+	// pattern with an empty string, which removes the pattern.
+	if len(parts) < 2 || (len(parts) == 2 && parts[1] == "") {
 		return nil, "", false, fmt.Errorf("invalid sed expression: missing replacement")
 	}
 

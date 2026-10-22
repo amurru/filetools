@@ -649,7 +649,8 @@ sudo apt-get install -y \
   libxkbcommon-dev libxkbcommon-x11-dev
 ```
 
-On Windows and macOS no extra packages are needed. The release artifacts are
+On Windows no extra packages are needed. On macOS the build needs the Xcode
+command line tools. The release artifacts are
 named `filetools-gui-windows-amd64.exe` and `filetools-gui-linux-amd64`.
 
 ## Command Reference

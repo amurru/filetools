@@ -40,6 +40,8 @@ type dupfindPage struct {
 	// groupsTable lists the duplicate groups. It is kept across frames so
 	// that its scroll position survives.
 	groupsTable table
+	// groupsFor is the result the rows of the table were built from.
+	groupsFor *report.DuplicateResult
 }
 
 // sizeField is a numeric input for a size limit.
@@ -49,6 +51,7 @@ type sizeField struct {
 
 // layout draws the input.
 func (s *sizeField) layout(gtx layout.Context, th *theme, hint string) layout.Dimensions {
+	s.editor.SingleLine = true
 	editor := material.Editor(th.Theme, &s.editor, hint)
 	return editor.Layout(gtx)
 }
@@ -232,17 +235,22 @@ func (p *dupfindPage) layoutGroups(gtx layout.Context, th *theme, result *report
 	}
 	p.groupsTable.empty = "No duplicate files found."
 
-	var rows [][]string
-	for _, group := range result.Groups {
-		hash := group.Hash
-		if len(hash) > 8 {
-			hash = hash[:8]
+	// The rows only change when the result changes, so they are built once
+	// per result instead of once per frame.
+	if p.groupsFor != result {
+		p.groupsFor = result
+		var rows [][]string
+		for _, group := range result.Groups {
+			hash := group.Hash
+			if len(hash) > 8 {
+				hash = hash[:8]
+			}
+			for _, file := range group.Files {
+				rows = append(rows, []string{file, formatSize(group.Size), hash})
+			}
 		}
-		for _, file := range group.Files {
-			rows = append(rows, []string{file, formatSize(group.Size), hash})
-		}
+		p.groupsTable.setRows(rows)
 	}
-	p.groupsTable.setRows(rows)
 
 	return fillPanel(gtx, th, "Groups", func(gtx layout.Context) layout.Dimensions {
 		return p.groupsTable.layout(gtx, th)
